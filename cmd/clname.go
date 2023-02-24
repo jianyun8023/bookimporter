@@ -14,7 +14,7 @@ import (
 
 // Used for downloading books from sanqiu website.
 var c = &ClnameConfig{
-	ReNameReg: regexp.MustCompile(`(?m)([\(（【].{7,}[\)）】])*\s*(([\(（【].{7,}[\)）】]))$`),
+	ReNameReg: regexp.MustCompile(`(?m)([(（【].{7,}[)）】])*\s*([(（【].{7,}[)）】])$`),
 }
 
 // renameBookCmd used for download books from sanqiu.cc
@@ -24,14 +24,14 @@ var clnameCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Validate config.
 
-        ValidateConfig(c)
+		ValidateConfig(c)
 
 		if IsDir(c.Path) {
 			m, _ := filepath.Glob(path.Join(c.Path, "*.epub"))
 			for _, val := range m {
 				//				fmt.Println(val)
 				epubpath := val
-                err := ParseEpub(epubpath, c)
+				err := ParseEpub(epubpath, c)
 				if err != nil && !c.Skip {
 					panic(fmt.Errorf("file %v  %v", epubpath, err))
 				} else if err != nil && c.Skip {
@@ -41,7 +41,7 @@ var clnameCmd = &cobra.Command{
 
 		} else {
 			epubpath := c.Path
-            err := ParseEpub(epubpath, c)
+			err := ParseEpub(epubpath, c)
 			if err != nil && !c.Skip {
 				panic(fmt.Errorf("file %v  %v", epubpath, err))
 			} else if err != nil && c.Skip {
@@ -63,13 +63,13 @@ func ValidateConfig(c *ClnameConfig) {
 }
 
 func init() {
-    clnameCmd.Flags().StringVarP(&c.Path, "path", "p", "./",
+	clnameCmd.Flags().StringVarP(&c.Path, "path", "p", "./",
 		"目录或者文件")
-    clnameCmd.Flags().BoolVarP(&c.Debug, "dotry", "t", false,
+	clnameCmd.Flags().BoolVarP(&c.Debug, "dotry", "t", false,
 		"尝试运行")
-    clnameCmd.Flags().BoolVarP(&c.Skip, "skip", "j", false,
+	clnameCmd.Flags().BoolVarP(&c.Skip, "skip", "j", false,
 		"跳过无法解析的书籍")
-    clnameCmd.Flags().BoolVarP(&c.Debug, "debug", "d", false, "The number of download threads.")
+	clnameCmd.Flags().BoolVarP(&c.Debug, "debug", "d", false, "The number of download threads.")
 }
 
 func ParseEpub(file string, c *ClnameConfig) error {
@@ -91,7 +91,7 @@ func ParseEpub(file string, c *ClnameConfig) error {
 		return nil
 	}
 
-    fmt.Printf("路径: \033[1;31;40m%v\033[0m 新名称: \033[1;32;40m%v\033[0m 旧名称: \033[1;33;40m%v\033[0m\n", file, newTitle, title)
+	fmt.Printf("路径: \033[1;31;40m%v\033[0m 新名称: \033[1;32;40m%v\033[0m 旧名称: \033[1;33;40m%v\033[0m\n", file, newTitle, title)
 
 	if c.DoTry {
 		return nil
@@ -113,10 +113,10 @@ func ParseEpub(file string, c *ClnameConfig) error {
 }
 
 type ClnameConfig struct {
-	Path      string
-	DoTry     bool
-	Debug     bool
-	Skip      bool
+	Path  string
+	DoTry bool
+	Debug bool
+	Skip  bool
 
 	ReNameReg *regexp.Regexp
 }
