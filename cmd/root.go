@@ -8,7 +8,7 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "bookImporter",
+	Use:   "bookimporter",
 	Short: "Import books into your library",
 }
 
@@ -24,5 +24,5 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(clnameCmd)
 	rootCmd.AddCommand(renameCmd)
-	rootCmd.SetVersionTemplate("v0.0.1")
+	rootCmd.AddCommand(versionCmd)
 }

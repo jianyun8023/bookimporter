@@ -1,4 +1,4 @@
-module github.com/jianyun8023/bookImporter
+module github.com/jianyun8023/bookimporter
 
 go 1.18
 
