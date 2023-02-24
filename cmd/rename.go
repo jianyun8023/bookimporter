@@ -41,6 +41,8 @@ a sequence number in the template to number the files sequentially.`,
 			StartIndex: parseIntFlag(cmd, "start-num"),
 		}
 
+		validateConfig(config)
+
 		if config.Debug {
 			fmt.Println("Debugging information:")
 			fmt.Printf("  - DoTry: %v\n", config.DoTry)
@@ -54,6 +56,13 @@ a sequence number in the template to number the files sequentially.`,
 		}
 		rename(config)
 	},
+}
+
+func validateConfig(config RenameConfig) {
+	if !strings.Contains(config.Template, "@n") {
+		panic(fmt.Errorf("模板[ %s ]中不存在占位符@n", config.Template))
+	}
+
 }
 
 func rename(config RenameConfig) {
@@ -166,7 +175,7 @@ func init() {
 	renameCmd.Flags().StringArrayP("format", "f", []string{"*"}, "File format to match (e.g. 'txt')")
 	renameCmd.Flags().BoolP("recursive", "r", false, "Recursively search for files")
 	renameCmd.Flags().StringP("output", "o", "", "Output directory for moved files")
-	renameCmd.Flags().StringP("template", "t", "file-$n", "Template for new filename (e.g. 'file-$n')")
+	renameCmd.Flags().StringP("template", "t", "file-@n", "Template for new filename (e.g. 'file-@n')")
 	renameCmd.Flags().Int("start-num", 1, "Starting number for sequence")
 	_ = rootCmd.MarkFlagRequired("format")
 	_ = rootCmd.MarkFlagRequired("template")
@@ -174,13 +183,8 @@ func init() {
 
 func buildNewName(template string, index int, file string) string {
 	ext := filepath.Ext(file)
-	newName := strings.Replace(template, "$n", strconv.Itoa(index), -1)
-	newName = strings.Replace(newName, "$e", ext, -1)
-
-	if ext != "" && !strings.Contains(newName, "$e") {
-		newName += ext
-	}
-
+	newName := strings.Replace(template, "@n", strconv.Itoa(index), -1)
+	newName += ext
 	return newName
 }
 
