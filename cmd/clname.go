@@ -85,8 +85,8 @@ func ParseEpub(file string, c *ClnameConfig) error {
 	if len(c.ReNameReg.FindAllString(title, -1)) == 0 {
 		return nil
 	}
-	newTitle := strings.TrimSpace(c.ReNameReg.ReplaceAllString(title, ""))
-	newTitle = strings.ReplaceAll(newTitle, "\"", " ")
+	newTitle := c.ReNameReg.ReplaceAllString(title, "")
+	newTitle = strings.TrimSpace(strings.ReplaceAll(newTitle, "\"", " "))
 	if len(newTitle) == 0 {
 		return nil
 	}
