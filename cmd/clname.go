@@ -14,7 +14,7 @@ import (
 
 // Used for downloading books from sanqiu website.
 var c = &ClnameConfig{
-	ReNameReg: regexp.MustCompile(`(?m)([(（【].{7,}[)）】])*\s*([(（【].{7,}[)）】])$`),
+	ReNameReg: regexp.MustCompile(`(?m)(\s?[(（【][^)）】(（【册卷套版]{4,}[)）】])`),
 }
 
 // renameBookCmd used for download books from sanqiu.cc
