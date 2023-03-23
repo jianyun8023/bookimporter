@@ -22,21 +22,20 @@ a sequence number in the template to number the files sequentially.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
 		if len(args) == 0 {
-			fmt.Printf("Error: 需要指定扫描路径")
+			fmt.Printf("Error: 需要指定扫描路径\n")
 			os.Exit(1)
 		}
 		array, err := cmd.Flags().GetStringArray("format")
 		if err != nil {
 			panic(err)
 		}
-		config := RenameConfig{
+		config := &RenameConfig{
 			Debug:      cmd.Flag("debug").Value.String() == "true",
 			DoTry:      cmd.Flag("do-try").Value.String() == "true",
 			Formats:    array,
 			Recursive:  cmd.Flag("recursive").Value.String() == "true",
 			SourceDir:  args[0],
 			OutputDir:  cmd.Flag("output").Value.String(),
-			Move:       cmd.Flag("output").Value.String() != "",
 			Template:   cmd.Flag("template").Value.String(),
 			StartIndex: parseIntFlag(cmd, "start-num"),
 		}
@@ -48,7 +47,6 @@ a sequence number in the template to number the files sequentially.`,
 			fmt.Printf("  - DoTry: %v\n", config.DoTry)
 			fmt.Printf("  - Format: %v\n", config.Formats)
 			fmt.Printf("  - Recursive: %v\n", config.Recursive)
-			fmt.Printf("  - Move: %v\n", config.Move)
 			fmt.Printf("  - SourceDir: %s\n", config.SourceDir)
 			fmt.Printf("  - OutputDir: %s\n", config.OutputDir)
 			fmt.Printf("  - Template: %s\n", config.Template)
@@ -58,14 +56,14 @@ a sequence number in the template to number the files sequentially.`,
 	},
 }
 
-func validateConfig(config RenameConfig) {
+func validateConfig(config *RenameConfig) {
 	if !strings.Contains(config.Template, "@n") {
 		panic(fmt.Errorf("模板[ %s ]中不存在占位符@n", config.Template))
 	}
 
 }
 
-func rename(config RenameConfig) {
+func rename(config *RenameConfig) {
 
 	files, err := findFiles(config.SourceDir, config.Formats, config.Recursive)
 	if err != nil {
@@ -86,13 +84,8 @@ func rename(config RenameConfig) {
 	for i, file := range files {
 		newName := buildNewName(config.Template, config.StartIndex+i, file)
 
-		if config.Move {
-			outputDir := config.OutputDir
-			if outputDir == "" {
-				outputDir = filepath.Dir(file)
-			}
-
-			outputPath := filepath.Join(outputDir, newName)
+		if config.OutputDir != "" {
+			outputPath := filepath.Join(config.OutputDir, newName)
 
 			if !config.DoTry {
 				err = os.Rename(file, outputPath)
@@ -118,7 +111,7 @@ func rename(config RenameConfig) {
 		}
 	}
 	fmt.Printf("%d files found.\n", len(files))
-	if config.Move {
+	if config.OutputDir != "" {
 		fmt.Printf("%d files moved:\n", len(movedFiles))
 		for _, file := range movedFiles {
 			fmt.Printf("  - %s\n", file)
@@ -198,7 +191,6 @@ type RenameConfig struct {
 	DoTry      bool
 	Formats    []string
 	Recursive  bool
-	Move       bool
 	SourceDir  string
 	OutputDir  string
 	Template   string
