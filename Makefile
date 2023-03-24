@@ -5,7 +5,7 @@ help:  ## Display this help
 		/^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 build: ## Build executable files
-    GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o bin/booktool-linux-x64 main.go
+	goreleaser release --skip-publish --snapshot --rm-dist
 
 test: ## Run tests
 	go install "github.com/rakyll/gotest@latest"
