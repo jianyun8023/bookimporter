@@ -24,5 +24,6 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(clnameCmd)
 	rootCmd.AddCommand(renameCmd)
+	rootCmd.AddCommand(extractCmd)
 	rootCmd.AddCommand(versionCmd)
 }

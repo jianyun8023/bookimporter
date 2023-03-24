@@ -3,11 +3,10 @@ package cmd
 import (
 	"fmt"
 	"github.com/jianyun8023/bookimporter/internal/util"
-	"github.com/kapmahc/epub"
+	"github.com/jianyun8023/bookimporter/pkg/epub"
 	"github.com/spf13/cobra"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -21,33 +20,35 @@ var c = &ClnameConfig{
 // renameBookCmd used for download books from sanqiu.cc
 var clnameCmd = &cobra.Command{
 	Use:   "clname",
-	Short: "清理书籍标题中的无用描述",
+	Short: "Clean up useless descriptions in book titles",
 	Run: func(cmd *cobra.Command, args []string) {
 		// Validate config.
 
 		ValidateConfig(c)
 
-		if util.IsDir(c.Path) {
-			m, _ := filepath.Glob(path.Join(c.Path, "*.epub"))
-			for _, val := range m {
-				//				fmt.Println(val)
-				epubpath := val
-				err := ParseEpub(epubpath, c)
-				if err != nil && !c.Skip {
-					panic(fmt.Errorf("file %v  %v", epubpath, err))
-				} else if err != nil && c.Skip {
-					fmt.Printf("file %v  %v\n", epubpath, err)
-				}
+		err := filepath.Walk(c.Path, func(path string, info os.FileInfo, err error) error {
+			// 如果是子目录，则跳过继续处理
+			if info.IsDir() {
+				return nil
 			}
 
-		} else {
-			epubpath := c.Path
-			err := ParseEpub(epubpath, c)
-			if err != nil && !c.Skip {
-				panic(fmt.Errorf("file %v  %v", epubpath, err))
-			} else if err != nil && c.Skip {
-				fmt.Printf("file %v  %v\n", epubpath, err)
+			// 如果文件的扩展名是".epub"，则打印它的路径
+			if filepath.Ext(path) != ".epub" {
+				return nil
 			}
+
+			err = ParseEpub(path, c)
+
+			if err != nil && !c.Skip {
+				panic(fmt.Errorf("file: %v  %v", path, err))
+			} else if err != nil && c.Skip {
+				fmt.Printf("file: %v  %v", path, err)
+			}
+			return nil
+		})
+
+		if err != nil {
+			panic(err)
 		}
 	},
 }
@@ -65,23 +66,23 @@ func ValidateConfig(c *ClnameConfig) {
 
 func init() {
 	clnameCmd.Flags().StringVarP(&c.Path, "path", "p", "./",
-		"目录或者文件")
-	clnameCmd.Flags().BoolVarP(&c.DoTry, "dotry", "t", false,
-		"尝试运行")
+		"Directory or file")
+	clnameCmd.Flags().BoolVarP(&c.DoTry, "do-try", "t", false,
+		"Try to run")
 	clnameCmd.Flags().BoolVarP(&c.Skip, "skip", "j", false,
-		"跳过无法解析的书籍")
-	clnameCmd.Flags().BoolVarP(&c.Debug, "debug", "d", false, "The number of download threads.")
+		"Skip books that cannot be parsed.")
+	clnameCmd.Flags().BoolVarP(&c.Debug, "debug", "d", false, "Enable debugging information")
 }
 
 func ParseEpub(file string, c *ClnameConfig) error {
-	book, err := epub.Open(file)
+	metadata, err := epub.ReadMetadata(file)
 	if err != nil {
 		return err
 	}
-	if book == nil || len(book.Opf.Metadata.Title) == 0 {
-		return fmt.Errorf("无法获得书籍标题")
+	if len(metadata.Title) == 0 {
+		return fmt.Errorf("unable to obtain book title")
 	}
-	title := book.Opf.Metadata.Title[0]
+	title := metadata.Title
 
 	if len(c.ReNameReg.FindAllString(title, -1)) == 0 {
 		return nil
@@ -92,7 +93,7 @@ func ParseEpub(file string, c *ClnameConfig) error {
 		return nil
 	}
 
-	fmt.Printf("路径: \033[1;31;40m%v\033[0m 新名称: \033[1;32;40m%v\033[0m 旧名称: \033[1;33;40m%v\033[0m\n", file, newTitle, title)
+	fmt.Printf("Path: \033[1;31;40m%v\033[0m 新名称: \033[1;32;40m%v\033[0m 旧名称: \033[1;33;40m%v\033[0m\n", file, newTitle, title)
 
 	if c.DoTry {
 		return nil
