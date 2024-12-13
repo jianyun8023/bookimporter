@@ -2,20 +2,18 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/jianyun8023/bookimporter/pkg/util"
 	"github.com/kapmahc/epub"
 	"github.com/spf13/cobra"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
 // Used for downloading books from sanqiu website.
-var c = &ClnameConfig{
-	ReNameReg: regexp.MustCompile(`(?m)(\s?[(（【][^)）】(（【册卷套版]{4,}[)）】])`),
-}
+var c = &ClnameConfig{}
 
 // renameBookCmd used for download books from sanqiu.cc
 var clnameCmd = &cobra.Command{
@@ -26,7 +24,7 @@ var clnameCmd = &cobra.Command{
 
 		ValidateConfig(c)
 
-		if IsDir(c.Path) {
+		if util.IsDir(c.Path) {
 			m, _ := filepath.Glob(path.Join(c.Path, "*.epub"))
 			for _, val := range m {
 				//				fmt.Println(val)
@@ -52,11 +50,11 @@ var clnameCmd = &cobra.Command{
 }
 
 func ValidateConfig(c *ClnameConfig) {
-	if !Exists(c.Path) {
+	if !util.Exists(c.Path) {
 		fmt.Println("文件路径不存在，请检查")
 		os.Exit(1)
 	}
-	if IsFile(c.Path) && !strings.HasSuffix(c.Path, ".epub") {
+	if util.IsFile(c.Path) && !strings.HasSuffix(c.Path, ".epub") {
 		fmt.Println("文件格式不存在，请检查")
 		os.Exit(1)
 	}
@@ -69,7 +67,7 @@ func init() {
 		"尝试运行")
 	clnameCmd.Flags().BoolVarP(&c.Skip, "skip", "j", false,
 		"跳过无法解析的书籍")
-	clnameCmd.Flags().BoolVarP(&c.Debug, "debug", "d", false, "The number of download threads.")
+	clnameCmd.Flags().BoolVarP(&c.Debug, "debug", "d", false, "调试模式")
 }
 
 func ParseEpub(file string, c *ClnameConfig) error {
@@ -81,13 +79,8 @@ func ParseEpub(file string, c *ClnameConfig) error {
 		return fmt.Errorf("无法获得书籍标题")
 	}
 	title := book.Opf.Metadata.Title[0]
-
-	if len(c.ReNameReg.FindAllString(title, -1)) == 0 {
-		return nil
-	}
-	newTitle := c.ReNameReg.ReplaceAllString(title, "")
-	newTitle = strings.TrimSpace(strings.ReplaceAll(newTitle, "\"", " "))
-	if len(newTitle) == 0 {
+	newTitle := util.CleanTitle(title)
+	if title == newTitle {
 		return nil
 	}
 
@@ -117,32 +110,4 @@ type ClnameConfig struct {
 	DoTry bool
 	Debug bool
 	Skip  bool
-
-	ReNameReg *regexp.Regexp
-}
-
-// Exists 判断所给路径文件/文件夹是否存在
-func Exists(path string) bool {
-	_, err := os.Stat(path) //os.Stat获取文件信息
-	if err != nil {
-		if os.IsExist(err) {
-			return true
-		}
-		return false
-	}
-	return true
-}
-
-// IsDir 判断所给路径是否为文件夹
-func IsDir(path string) bool {
-	s, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-	return s.IsDir()
-}
-
-// IsFile 判断所给路径是否为文件
-func IsFile(path string) bool {
-	return !IsDir(path)
 }
