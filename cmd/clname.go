@@ -79,7 +79,7 @@ func ParseEpub(file string, c *ClnameConfig) error {
 		return fmt.Errorf("无法获得书籍标题")
 	}
 	title := book.Opf.Metadata.Title[0]
-	newTitle := util.CleanTitle(title)
+	newTitle := util.TryCleanTitle(title)
 	if title == newTitle {
 		return nil
 	}
