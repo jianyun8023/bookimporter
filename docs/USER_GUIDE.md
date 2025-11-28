@@ -42,6 +42,7 @@ bookimporter clname [选项]
 | 选项 | 简写 | 默认值 | 说明 |
 |------|------|--------|------|
 | --path | -p | ./ | 目标文件或目录路径 |
+| --recursive | -r | false | 递归搜索子目录 |
 | --dotry | -t | false | 尝试运行，不实际修改 |
 | --skip | -j | false | 跳过无法解析的书籍 |
 | --debug | -d | false | 启用调试模式 |
@@ -62,13 +63,21 @@ bookimporter clname -p /path/to/book.epub
 路径: /path/to/book.epub 新名称: 三体 旧名称: 三体【刘慈欣】
 ```
 
-#### 2. 批量清理目录
+#### 2. 批量清理目录（仅当前目录）
 
 ```bash
 bookimporter clname -p /path/to/books/
 ```
 
-程序会自动处理目录下所有 `.epub` 文件。
+程序会自动处理目录下所有 `.epub` 文件（不包含子目录）。
+
+#### 2.1. 递归清理目录及子目录
+
+```bash
+bookimporter clname -p /path/to/books/ -r
+```
+
+使用 `-r` 参数可以递归搜索并处理所有子目录中的 EPUB 文件。
 
 #### 3. 预览模式（不实际修改）
 
