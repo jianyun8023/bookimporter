@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/jianyun8023/bookimporter/pkg/ui"
+	"github.com/spf13/cobra"
 )
 
 var renameCmd = &cobra.Command{
@@ -22,7 +24,7 @@ a sequence number in the template to number the files sequentially.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
 		if len(args) == 0 {
-			fmt.Printf("Error: 需要指定扫描路径\n")
+			fmt.Println(ui.RenderError("需要指定扫描路径"))
 			os.Exit(1)
 		}
 		array, err := cmd.Flags().GetStringArray("format")
@@ -42,15 +44,20 @@ a sequence number in the template to number the files sequentially.`,
 
 		validateConfig(config)
 
+		// 打印头部
+		fmt.Println(ui.RenderHeader("批量重命名文件", "按模板批量重命名或移动文件"))
+		fmt.Println()
+
 		if config.Debug {
-			fmt.Println("Debugging information:")
-			fmt.Printf("  - DoTry: %v\n", config.DoTry)
-			fmt.Printf("  - Format: %v\n", config.Formats)
-			fmt.Printf("  - Recursive: %v\n", config.Recursive)
-			fmt.Printf("  - SourceDir: %s\n", config.SourceDir)
-			fmt.Printf("  - OutputDir: %s\n", config.OutputDir)
-			fmt.Printf("  - Template: %s\n", config.Template)
-			fmt.Printf("  - StartIndex: %d\n", config.StartIndex)
+			fmt.Println(ui.RenderInfo("调试信息:"))
+			fmt.Printf("  - 试运行: %v\n", config.DoTry)
+			fmt.Printf("  - 文件格式: %v\n", config.Formats)
+			fmt.Printf("  - 递归搜索: %v\n", config.Recursive)
+			fmt.Printf("  - 源目录: %s\n", config.SourceDir)
+			fmt.Printf("  - 输出目录: %s\n", config.OutputDir)
+			fmt.Printf("  - 模板: %s\n", config.Template)
+			fmt.Printf("  - 起始序号: %d\n", config.StartIndex)
+			fmt.Println()
 		}
 		rename(config)
 	},
@@ -58,28 +65,43 @@ a sequence number in the template to number the files sequentially.`,
 
 func validateConfig(config *RenameConfig) {
 	if !strings.Contains(config.Template, "@n") {
-		panic(fmt.Errorf("模板[ %s ]中不存在占位符@n", config.Template))
+		fmt.Println(ui.RenderError(fmt.Sprintf("模板 [%s] 中不存在占位符 @n", config.Template)))
+		os.Exit(1)
 	}
-
 }
 
 func rename(config *RenameConfig) {
 
 	files, err := findFiles(config.SourceDir, config.Formats, config.Recursive)
 	if err != nil {
-		fmt.Printf("Error: %s\n", err)
+		fmt.Println(ui.RenderError(fmt.Sprintf("查找文件失败: %s", err)))
 		os.Exit(1)
 	}
 
 	if len(files) == 0 {
-		fmt.Println("No files found.")
+		fmt.Println(ui.RenderWarning("未找到匹配的文件"))
 		return
 	}
+
+	fmt.Println(ui.RenderInfo(fmt.Sprintf("找到 %d 个文件", len(files))))
+	fmt.Println()
 
 	var (
 		renamedFiles []string
 		movedFiles   []string
 	)
+
+	// 如果是试运行模式，显示预览表格
+	if config.DoTry {
+		fmt.Println(ui.RenderTitle("重命名预览"))
+		fmt.Println()
+	}
+
+	// 创建进度跟踪器
+	var progress *ui.ProgressTracker
+	if !config.DoTry && len(files) > 1 {
+		progress = ui.NewProgressTracker(len(files))
+	}
 
 	for i, file := range files {
 		newName := buildNewName(config.Template, config.StartIndex+i, file)
@@ -87,11 +109,32 @@ func rename(config *RenameConfig) {
 		if config.OutputDir != "" {
 			outputPath := filepath.Join(config.OutputDir, newName)
 
-			if !config.DoTry {
+			if config.DoTry {
+				// 预览模式
+				fmt.Println(ui.FormatRenamePreview(file, outputPath))
+			} else {
+				// 显示进度
+				if progress != nil {
+					progress.SetMessage(fmt.Sprintf("重命名: %s", filepath.Base(file)))
+					fmt.Printf("\r%s", progress.RenderSimple())
+				}
+
 				err = os.Rename(file, outputPath)
 				if err != nil {
-					fmt.Printf("Error: %s\n", err)
+					if progress != nil {
+						fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+					}
+					fmt.Println(ui.RenderError(fmt.Sprintf("重命名失败: %s", err)))
 					os.Exit(1)
+				}
+
+				if progress != nil {
+					fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+				}
+				fmt.Println(ui.FormatRenamePreview(file, outputPath))
+
+				if progress != nil {
+					progress.Increment()
 				}
 			}
 
@@ -99,27 +142,68 @@ func rename(config *RenameConfig) {
 		} else {
 			outputPath := filepath.Join(filepath.Dir(file), newName)
 
-			if !config.DoTry {
+			if config.DoTry {
+				// 预览模式
+				fmt.Println(ui.FormatRenamePreview(file, outputPath))
+			} else {
+				// 显示进度
+				if progress != nil {
+					progress.SetMessage(fmt.Sprintf("重命名: %s", filepath.Base(file)))
+					fmt.Printf("\r%s", progress.RenderSimple())
+				}
+
 				err = os.Rename(file, outputPath)
 				if err != nil {
-					fmt.Printf("Error: %s\n", err)
+					if progress != nil {
+						fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+					}
+					fmt.Println(ui.RenderError(fmt.Sprintf("重命名失败: %s", err)))
 					os.Exit(1)
+				}
+
+				if progress != nil {
+					fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+				}
+				fmt.Println(ui.FormatRenamePreview(file, outputPath))
+
+				if progress != nil {
+					progress.Increment()
 				}
 			}
 
 			renamedFiles = append(renamedFiles, file+" -> "+outputPath)
 		}
 	}
-	fmt.Printf("%d files found.\n", len(files))
+
+	// 清除进度行
+	if progress != nil {
+		fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+	}
+
+	// 打印统计信息
+	fmt.Println()
+	fmt.Println(ui.RenderSeparator(50))
+	fmt.Println()
+
+	statsMap := map[string]int{
+		"total": len(files),
+	}
+
 	if config.OutputDir != "" {
-		fmt.Printf("%d files moved:\n", len(movedFiles))
-		for _, file := range movedFiles {
-			fmt.Printf("  - %s\n", file)
+		fmt.Println(ui.RenderStatsSummary(statsMap))
+		fmt.Println()
+		if config.DoTry {
+			fmt.Println(ui.RenderInfo(fmt.Sprintf("[试运行] 将移动 %d 个文件到: %s", len(movedFiles), config.OutputDir)))
+		} else {
+			fmt.Println(ui.RenderSuccess(fmt.Sprintf("成功移动 %d 个文件到: %s", len(movedFiles), config.OutputDir)))
 		}
 	} else {
-		fmt.Printf("%d files renamed:\n", len(renamedFiles))
-		for _, file := range renamedFiles {
-			fmt.Printf("  - %s\n", file)
+		fmt.Println(ui.RenderStatsSummary(statsMap))
+		fmt.Println()
+		if config.DoTry {
+			fmt.Println(ui.RenderInfo(fmt.Sprintf("[试运行] 将重命名 %d 个文件", len(renamedFiles))))
+		} else {
+			fmt.Println(ui.RenderSuccess(fmt.Sprintf("成功重命名 %d 个文件", len(renamedFiles))))
 		}
 	}
 }
