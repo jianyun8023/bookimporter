@@ -117,22 +117,24 @@ bookimporter clname -p /path/to/books/ -r
 # 预览模式（不实际修改）
 bookimporter clname -p /path/to/books/ -r -t
 
-# 跳过错误继续处理
-bookimporter clname -p /path/to/books/ -r -j
+# 忽略错误退出码（适用于脚本）
+bookimporter clname -p /path/to/books/ -r -i
 
 # 移动损坏的文件
-bookimporter clname -p /path/to/books/ -r -j --move-corrupted-to /corrupted/
+bookimporter clname -p /path/to/books/ -r --move-corrupted-to /corrupted/
 ```
 
 **参数说明:**
 - `-p, --path`: 目录或文件路径
 - `-r, --recursive`: 递归搜索子目录
 - `-t, --dotry`: 预览模式，不实际修改
-- `-j, --skip`: 跳过错误继续处理（**重要**: 不使用此参数时遇到错误会停止）
+- `-i, --ignore-errors`: 忽略错误，即使有失败也返回退出码 0
 - `--move-corrupted-to`: 移动损坏文件到指定目录
 - `--delete-corrupted`: 删除损坏的文件
 - `--force-delete`: 删除时不需要确认
 - `-d, --debug`: 调试模式
+
+**注意:** v2025-11-28 起，默认行为已改为跳过错误继续处理。使用 `-i` 可控制退出码。
 
 ### 3. 批量重命名 (rename)
 
@@ -252,8 +254,11 @@ A: 需要安装 Calibre 软件包，它包含了 ebook-meta 命令行工具。
 **Q: 如何自定义清理规则？**
 A: 修改 `pkg/util/cleanname.go` 中的 `TryCleanTitle` 函数，添加自定义的清理逻辑。
 
-**Q: 使用 -j 参数和不使用有什么区别？**
-A: 不使用 `-j` 时遇到错误会立即停止（退出码1）；使用 `-j` 会跳过错误继续处理（退出码0）。
+**Q: 默认的错误处理行为是什么？**
+A: v2025-11-28 起，默认跳过错误继续处理其他文件。有失败时返回退出码 1，使用 `-i` 参数可返回退出码 0。
+
+**Q: 什么时候使用 -i 参数？**
+A: 当在脚本或 CI/CD 中使用，不希望因部分失败而中断后续流程时，可使用 `-i` 参数忽略错误退出码。
 
 ### rename 命令相关
 
@@ -324,19 +329,30 @@ fmt.Println(ui.RenderTable(config))
 
 ```
 docs/
-├── changelogs/              # 版本变更记录
-│   └── v2.0.0-ui-upgrade.md
-├── development/             # 开发文档
-│   └── ui-components-guide.md
-├── guides/                  # 使用指南
-│   └── help-improvement.md
-├── USER_GUIDE.md           # 用户指南
-├── API.md                  # API 文档
-├── ARCHITECTURE.md         # 架构文档
-├── CONTRIBUTING.md         # 贡献指南
-├── FAQ.md                  # 常见问题
-└── ...
+├── changelogs/                          # 版本变更记录
+│   ├── v2.0.0-ui-upgrade.md            # UI 组件库升级记录
+│   └── v2025-11-28-command-improvements.md  # 命令优化记录
+├── development/                         # 开发文档
+│   └── ui-components-guide.md          # UI 组件使用指南
+├── guides/                             # 使用指南
+│   └── help-improvement.md             # 帮助信息改进指南
+├── USER_GUIDE.md                       # 用户指南
+├── API.md                              # API 文档
+├── ARCHITECTURE.md                     # 架构文档
+├── CONTRIBUTING.md                     # 贡献指南
+├── FAQ.md                              # 常见问题
+├── INSTALLATION.md                     # 安装指南
+├── RELEASE.md                          # 发布流程
+├── SECURITY.md                         # 安全说明
+└── LICENSE.md                          # 许可证
 ```
+
+### 文档分类说明
+
+- **changelogs/** - 详细的版本变更记录，按日期或版本号命名
+- **development/** - 开发相关文档，包括组件指南、架构设计等
+- **guides/** - 使用指南和最佳实践
+- **根目录文档** - 通用文档，如用户指南、FAQ、贡献指南等
 
 ## AI 助手提示
 
@@ -358,12 +374,15 @@ docs/
 ### 文档维护
 10. **文档同步**: 功能变更时同步更新相关文档
 11. **文档归类**: 新文档放入 `docs/` 对应的分类目录
+    - 版本变更 → `docs/changelogs/`
+    - 开发文档 → `docs/development/`
+    - 使用指南 → `docs/guides/`
 12. **示例代码**: 提供实用的代码示例
 13. **帮助信息**: 为新命令编写详细的帮助信息（参考 `docs/guides/help-improvement.md`）
+14. **变更日志**: 重要更新需在 `Changelog.md` 和 `docs/changelogs/` 中记录
 
 ### 最佳实践
-14. **参数验证**: 添加必要的参数验证和友好提示
-15. **安全性**: 删除等危险操作需要确认
-16. **测试充分**: 编写单元测试和集成测试
-17. **性能测试**: 批量操作测试性能和内存占用
-
+15. **参数验证**: 添加必要的参数验证和友好提示
+16. **安全性**: 删除等危险操作需要确认
+17. **测试充分**: 编写单元测试和集成测试
+18. **性能测试**: 批量操作测试性能和内存占用
