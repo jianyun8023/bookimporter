@@ -25,4 +25,5 @@ func init() {
 	rootCmd.AddCommand(clnameCmd)
 	rootCmd.AddCommand(renameCmd)
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(checkCmd)
 }

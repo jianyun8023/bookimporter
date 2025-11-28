@@ -15,6 +15,7 @@
 - ✅ 批量处理目录下所有 EPUB 文件
 - ✅ 支持预览模式，安全可靠
 - ✅ 使用 Calibre 的 ebook-meta 工具修改元数据
+- ✅ 自动检测并处理损坏的 EPUB 文件
 
 ### 2. 批量重命名 (rename)
 
@@ -25,6 +26,17 @@
 - ✅ 移动文件到指定目录
 - ✅ 多种文件格式支持
 - ✅ 预览模式，确保操作正确
+
+### 3. EPUB 文件完整性检测 (check)
+
+检测 EPUB 文件是否损坏，帮助你维护健康的电子书库。
+
+- ✅ ZIP 文件完整性验证
+- ✅ 必需文件存在性检查（mimetype、container.xml 等）
+- ✅ 元数据可解析性验证
+- ✅ 批量检测，支持递归搜索
+- ✅ 自动移动或删除损坏的文件
+- ✅ 详细的错误报告和统计信息
 
 ## 🚀 快速开始
 
@@ -57,6 +69,9 @@ bookimporter clname -p /path/to/books/
 
 # 预览模式（不实际修改）
 bookimporter clname -p /path/to/books/ -t
+
+# 清理时自动移动损坏的文件
+bookimporter clname -p /path/to/books/ --move-corrupted-to /path/to/corrupted/
 ```
 
 #### 批量重命名
@@ -67,6 +82,28 @@ bookimporter rename . -f txt -t "book-@n"
 
 # 递归搜索并移动到输出目录
 bookimporter rename /source/path -f epub -t "novel-@n" -r -o /output/path
+```
+
+#### 检测 EPUB 文件完整性
+
+```bash
+# 检测单个文件
+bookimporter check -p book.epub
+
+# 批量检测目录（递归）
+bookimporter check -p /path/to/books/ -r
+
+# 只显示有问题的文件
+bookimporter check -p /path/to/books/ -r --only-errors
+
+# 将损坏的文件移动到指定目录
+bookimporter check -p /path/to/books/ -r --move-to /path/to/corrupted/
+
+# 删除损坏的文件（会要求确认）
+bookimporter check -p /path/to/books/ -r --delete
+
+# 强制删除损坏的文件（不需要确认）
+bookimporter check -p /path/to/books/ -r --delete --force
 ```
 
 ## 📚 文档
