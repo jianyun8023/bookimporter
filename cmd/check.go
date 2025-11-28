@@ -126,36 +126,44 @@ func runCheck(cfg *CheckConfig) error {
 		Handled: 0,
 	}
 
-	// 创建进度跟踪器
-	progress := ui.NewProgressTracker(len(files))
+	// 创建增强的进度跟踪器
+	progress := ui.NewCompactProgressTracker(len(files))
+	progress.SetShowMessage(true)
 
 	// 检测每个文件
 	for i, file := range files {
-		progress.SetMessage(fmt.Sprintf("正在检测: %s", filepath.Base(file)))
+		progress.SetMessage(fmt.Sprintf("%s", filepath.Base(file)))
 
 		// 显示进度（只在批量模式下显示）
 		if len(files) > 1 {
-			fmt.Printf("\r%s", progress.RenderSimple())
+			fmt.Printf("\r%s", progress.RenderCompact())
 		}
 
-		if err := checkSingleFile(file, cfg, stats); err != nil {
+		err := checkSingleFile(file, cfg, stats)
+
+		// 更新统计计数
+		if err == nil {
+			progress.IncrementSuccess()
+		} else {
 			if cfg.Debug {
-				fmt.Fprintf(os.Stderr, "处理文件 %s 时发生错误: %v\n", file, err)
+				fmt.Fprintf(os.Stderr, "\n处理文件 %s 时发生错误: %v\n", file, err)
 			}
+			progress.IncrementFailure()
 		}
-
-		progress.Increment()
 
 		// 在单个文件模式下不需要清除行
 		if len(files) > 1 && i < len(files)-1 {
 			// 清除进度行，为文件详情腾出空间
-			fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+			fmt.Print("\r" + strings.Repeat(" ", 120) + "\r")
 		}
 	}
 
 	// 清除最后的进度行
 	if len(files) > 1 {
-		fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+		fmt.Print("\r" + strings.Repeat(" ", 120) + "\r")
+		// 显示最终进度统计
+		fmt.Println(progress.RenderWithStats())
+		fmt.Println()
 	}
 
 	// 打印统计信息
@@ -282,31 +290,65 @@ func handleDeleteFile(filePath string, force, doTry bool) error {
 
 // printStats 打印统计信息
 func printStats(stats *CheckStats) {
-	fmt.Println(ui.RenderSeparator(50))
+	fmt.Println(ui.RenderSeparator(60))
 	fmt.Println()
 
-	// 准备统计数据
-	statsMap := map[string]int{
-		"total":  stats.Total,
-		"passed": stats.Passed,
+	// 使用新的表格组件
+	tableConfig := ui.NewTableConfig()
+	tableConfig.Headers = []string{"  状态  ", " 数量 ", " 百分比 "}
+	tableConfig.BorderStyle = "rounded"
+	tableConfig.AlignRight = []int{1, 2} // 数字列右对齐
+
+	var rows [][]string
+
+	// 通过
+	if stats.Passed > 0 {
+		percentage := float64(stats.Passed) / float64(stats.Total) * 100
+		rows = append(rows, []string{
+			ui.IconSuccess + " 通过  ",
+			fmt.Sprintf(" %d ", stats.Passed),
+			fmt.Sprintf(" %.1f%% ", percentage),
+		})
 	}
 
+	// 失败
 	if stats.Failed > 0 {
-		statsMap["failed"] = stats.Failed
+		percentage := float64(stats.Failed) / float64(stats.Total) * 100
+		rows = append(rows, []string{
+			ui.IconError + " 失败  ",
+			fmt.Sprintf(" %d ", stats.Failed),
+			fmt.Sprintf(" %.1f%% ", percentage),
+		})
 	}
 
+	// 已处理
 	if stats.Handled > 0 {
-		statsMap["handled"] = stats.Handled
+		rows = append(rows, []string{
+			ui.IconInfo + " 已处理 ",
+			fmt.Sprintf(" %d ", stats.Handled),
+			fmt.Sprintf(" - "),
+		})
 	}
 
-	// 渲染统计表格
-	fmt.Println(ui.RenderStatsSummary(statsMap))
+	// 总计
+	rows = append(rows, []string{
+		"  总计  ",
+		fmt.Sprintf(" %d ", stats.Total),
+		" 100% ",
+	})
+
+	tableConfig.Rows = rows
+	table := ui.NewTable(tableConfig)
+	fmt.Println(table.Render())
 	fmt.Println()
 
 	// 添加成功/失败的总结信息
 	if stats.Failed == 0 {
-		fmt.Println(ui.RenderSuccess(fmt.Sprintf("所有 %d 个文件检测通过！", stats.Total)))
+		fmt.Println(ui.RenderSuccess(fmt.Sprintf("✨ 所有 %d 个文件检测通过！", stats.Total)))
 	} else {
-		fmt.Println(ui.RenderWarning(fmt.Sprintf("发现 %d 个问题文件", stats.Failed)))
+		fmt.Println(ui.RenderWarning(fmt.Sprintf("⚠️  发现 %d 个问题文件", stats.Failed)))
+		if stats.Handled > 0 {
+			fmt.Println(ui.RenderInfo(fmt.Sprintf("已处理 %d 个问题文件", stats.Handled)))
+		}
 	}
 }

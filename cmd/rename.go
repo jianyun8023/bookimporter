@@ -91,119 +91,187 @@ func rename(config *RenameConfig) {
 		movedFiles   []string
 	)
 
-	// 如果是试运行模式，显示预览表格
+	// 如果是试运行模式，使用表格显示预览
 	if config.DoTry {
-		fmt.Println(ui.RenderTitle("重命名预览"))
+		fmt.Println(ui.RenderTitle("📋 重命名预览"))
+		fmt.Println()
+		
+		// 创建预览表格
+		tableConfig := ui.NewTableConfig()
+		tableConfig.Headers = []string{" # ", " 原文件名 ", " → ", " 新文件名 "}
+		tableConfig.BorderStyle = "rounded"
+		tableConfig.CompactMode = false
+		
+		var rows [][]string
+		for i, file := range files {
+			newName := buildNewName(config.Template, config.StartIndex+i, file)
+			var outputPath string
+			if config.OutputDir != "" {
+				outputPath = filepath.Join(config.OutputDir, newName)
+			} else {
+				outputPath = filepath.Join(filepath.Dir(file), newName)
+			}
+			
+			// 截断长文件名
+			oldName := file
+			if len(oldName) > 40 {
+				oldName = "..." + oldName[len(oldName)-37:]
+			}
+			newPath := outputPath
+			if len(newPath) > 40 {
+				newPath = "..." + newPath[len(newPath)-37:]
+			}
+			
+			rows = append(rows, []string{
+				fmt.Sprintf(" %d ", i+1),
+				fmt.Sprintf(" %s ", oldName),
+				" → ",
+				fmt.Sprintf(" %s ", newPath),
+			})
+			
+			// 限制预览显示的行数
+			if i >= 19 && len(files) > 20 {
+				rows = append(rows, []string{
+					" ... ",
+					fmt.Sprintf(" ... 还有 %d 个文件 ... ", len(files)-20),
+					"   ",
+					" ... ",
+				})
+				break
+			}
+		}
+		
+		tableConfig.Rows = rows
+		table := ui.NewTable(tableConfig)
+		fmt.Println(table.Render())
 		fmt.Println()
 	}
 
 	// 创建进度跟踪器
 	var progress *ui.ProgressTracker
 	if !config.DoTry && len(files) > 1 {
-		progress = ui.NewProgressTracker(len(files))
+		progress = ui.NewCompactProgressTracker(len(files))
+		progress.SetShowMessage(true)
 	}
 
-	for i, file := range files {
-		newName := buildNewName(config.Template, config.StartIndex+i, file)
+	// 如果不是预览模式，执行重命名
+	if !config.DoTry {
+		for i, file := range files {
+			newName := buildNewName(config.Template, config.StartIndex+i, file)
 
-		if config.OutputDir != "" {
-			outputPath := filepath.Join(config.OutputDir, newName)
+			if config.OutputDir != "" {
+				outputPath := filepath.Join(config.OutputDir, newName)
 
-			if config.DoTry {
-				// 预览模式
-				fmt.Println(ui.FormatRenamePreview(file, outputPath))
-			} else {
 				// 显示进度
 				if progress != nil {
-					progress.SetMessage(fmt.Sprintf("重命名: %s", filepath.Base(file)))
-					fmt.Printf("\r%s", progress.RenderSimple())
+					progress.SetMessage(filepath.Base(file))
+					fmt.Printf("\r%s", progress.RenderCompact())
 				}
 
 				err = os.Rename(file, outputPath)
 				if err != nil {
 					if progress != nil {
-						fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+						fmt.Print("\r" + strings.Repeat(" ", 120) + "\r")
 					}
 					fmt.Println(ui.RenderError(fmt.Sprintf("重命名失败: %s", err)))
 					os.Exit(1)
 				}
 
 				if progress != nil {
-					fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+					fmt.Print("\r" + strings.Repeat(" ", 120) + "\r")
+					progress.IncrementSuccess()
 				}
 				fmt.Println(ui.FormatRenamePreview(file, outputPath))
 
-				if progress != nil {
-					progress.Increment()
-				}
-			}
-
-			movedFiles = append(movedFiles, file+" -> "+outputPath)
-		} else {
-			outputPath := filepath.Join(filepath.Dir(file), newName)
-
-			if config.DoTry {
-				// 预览模式
-				fmt.Println(ui.FormatRenamePreview(file, outputPath))
+				movedFiles = append(movedFiles, file+" -> "+outputPath)
 			} else {
+				outputPath := filepath.Join(filepath.Dir(file), newName)
+
 				// 显示进度
 				if progress != nil {
-					progress.SetMessage(fmt.Sprintf("重命名: %s", filepath.Base(file)))
-					fmt.Printf("\r%s", progress.RenderSimple())
+					progress.SetMessage(filepath.Base(file))
+					fmt.Printf("\r%s", progress.RenderCompact())
 				}
 
 				err = os.Rename(file, outputPath)
 				if err != nil {
 					if progress != nil {
-						fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+						fmt.Print("\r" + strings.Repeat(" ", 120) + "\r")
 					}
 					fmt.Println(ui.RenderError(fmt.Sprintf("重命名失败: %s", err)))
 					os.Exit(1)
 				}
 
 				if progress != nil {
-					fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+					fmt.Print("\r" + strings.Repeat(" ", 120) + "\r")
+					progress.IncrementSuccess()
 				}
 				fmt.Println(ui.FormatRenamePreview(file, outputPath))
 
-				if progress != nil {
-					progress.Increment()
-				}
+				renamedFiles = append(renamedFiles, file+" -> "+outputPath)
 			}
-
-			renamedFiles = append(renamedFiles, file+" -> "+outputPath)
 		}
-	}
 
-	// 清除进度行
-	if progress != nil {
-		fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+		// 清除进度行并显示最终统计
+		if progress != nil {
+			fmt.Print("\r" + strings.Repeat(" ", 120) + "\r")
+			fmt.Println(progress.RenderWithStats())
+			fmt.Println()
+		}
 	}
 
 	// 打印统计信息
 	fmt.Println()
-	fmt.Println(ui.RenderSeparator(50))
+	fmt.Println(ui.RenderSeparator(60))
 	fmt.Println()
 
-	statsMap := map[string]int{
-		"total": len(files),
-	}
+	// 使用表格展示统计
+	tableConfig := ui.NewTableConfig()
+	tableConfig.Headers = []string{"  项目  ", " 值 "}
+	tableConfig.BorderStyle = "rounded"
+	tableConfig.AlignRight = []int{1}
+
+	var rows [][]string
+	rows = append(rows, []string{
+		" 文件总数 ",
+		fmt.Sprintf(" %d ", len(files)),
+	})
 
 	if config.OutputDir != "" {
-		fmt.Println(ui.RenderStatsSummary(statsMap))
-		fmt.Println()
+		rows = append(rows, []string{
+			" 目标目录 ",
+			fmt.Sprintf(" %s ", config.OutputDir),
+		})
+	}
+
+	if config.DoTry {
+		rows = append(rows, []string{
+			" 模式 ",
+			" 预览模式 ",
+		})
+	} else {
+		rows = append(rows, []string{
+			" 已处理 ",
+			fmt.Sprintf(" %d ", len(files)),
+		})
+	}
+
+	tableConfig.Rows = rows
+	table := ui.NewTable(tableConfig)
+	fmt.Println(table.Render())
+	fmt.Println()
+
+	if config.OutputDir != "" {
 		if config.DoTry {
-			fmt.Println(ui.RenderInfo(fmt.Sprintf("[试运行] 将移动 %d 个文件到: %s", len(movedFiles), config.OutputDir)))
+			fmt.Println(ui.RenderInfo(fmt.Sprintf("📝 [试运行] 将移动 %d 个文件到: %s", len(files), config.OutputDir)))
 		} else {
-			fmt.Println(ui.RenderSuccess(fmt.Sprintf("成功移动 %d 个文件到: %s", len(movedFiles), config.OutputDir)))
+			fmt.Println(ui.RenderSuccess(fmt.Sprintf("✨ 成功移动 %d 个文件到: %s", len(movedFiles), config.OutputDir)))
 		}
 	} else {
-		fmt.Println(ui.RenderStatsSummary(statsMap))
-		fmt.Println()
 		if config.DoTry {
-			fmt.Println(ui.RenderInfo(fmt.Sprintf("[试运行] 将重命名 %d 个文件", len(renamedFiles))))
+			fmt.Println(ui.RenderInfo(fmt.Sprintf("📝 [试运行] 将重命名 %d 个文件", len(files))))
 		} else {
-			fmt.Println(ui.RenderSuccess(fmt.Sprintf("成功重命名 %d 个文件", len(renamedFiles))))
+			fmt.Println(ui.RenderSuccess(fmt.Sprintf("✨ 成功重命名 %d 个文件", len(renamedFiles))))
 		}
 	}
 }

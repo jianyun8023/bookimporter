@@ -49,61 +49,60 @@ var clnameCmd = &cobra.Command{
 			fmt.Println(ui.RenderInfo(fmt.Sprintf("找到 %d 个 EPUB 文件", stats.Total)))
 			fmt.Println()
 
-			// 创建进度跟踪器
-			progress := ui.NewProgressTracker(stats.Total)
+			// 创建增强的进度跟踪器
+			progress := ui.NewCompactProgressTracker(stats.Total)
+			progress.SetShowMessage(true)
 
 			for i, val := range m {
 				epubpath := val
-				progress.SetMessage(fmt.Sprintf("正在处理: %s", filepath.Base(epubpath)))
+				progress.SetMessage(filepath.Base(epubpath))
 
 				// 显示进度
 				if stats.Total > 1 {
-					fmt.Printf("\r%s", progress.RenderSimple())
+					fmt.Printf("\r%s", progress.RenderCompact())
 				}
 
-				err := ParseEpub(epubpath, c, stats)
+				err := ParseEpub(epubpath, c, stats, progress)
 				if err != nil && !c.Skip {
 					// 清除进度行
 					if stats.Total > 1 {
-						fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+						fmt.Print("\r" + strings.Repeat(" ", 120) + "\r")
 					}
 					fmt.Println(ui.RenderError(fmt.Sprintf("文件 %v: %v", epubpath, err)))
 					panic(fmt.Errorf("file %v  %v", epubpath, err))
 				} else if err != nil && c.Skip {
 					// 清除进度行
 					if stats.Total > 1 {
-						fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+						fmt.Print("\r" + strings.Repeat(" ", 120) + "\r")
 					}
 					fmt.Println(ui.FormatFilePath("文件", epubpath))
 					fmt.Println(ui.RenderWarning(fmt.Sprintf("跳过: %v", err)))
 					fmt.Println()
-					stats.Failed++
 				}
-
-				progress.Increment()
 
 				// 清除进度行，为文件详情腾出空间
 				if stats.Total > 1 && i < stats.Total-1 {
-					fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+					fmt.Print("\r" + strings.Repeat(" ", 120) + "\r")
 				}
 			}
 
-			// 清除最后的进度行
+			// 清除最后的进度行并显示最终统计
 			if stats.Total > 1 {
-				fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
+				fmt.Print("\r" + strings.Repeat(" ", 120) + "\r")
+				fmt.Println(progress.RenderWithStats())
+				fmt.Println()
 			}
 
 		} else {
 			stats.Total = 1
 			epubpath := c.Path
-			err := ParseEpub(epubpath, c, stats)
+			err := ParseEpub(epubpath, c, stats, nil)
 			if err != nil && !c.Skip {
 				fmt.Println(ui.RenderError(fmt.Sprintf("文件 %v: %v", epubpath, err)))
 				panic(fmt.Errorf("file %v  %v", epubpath, err))
 			} else if err != nil && c.Skip {
 				fmt.Println(ui.FormatFilePath("文件", epubpath))
 				fmt.Println(ui.RenderWarning(fmt.Sprintf("跳过: %v", err)))
-				stats.Failed++
 			}
 		}
 
@@ -134,35 +133,67 @@ type ClnameStats struct {
 // printClnameStats 打印统计信息
 func printClnameStats(stats *ClnameStats) {
 	fmt.Println()
-	fmt.Println(ui.RenderSeparator(50))
+	fmt.Println(ui.RenderSeparator(60))
 	fmt.Println()
 
-	// 准备统计数据
-	statsMap := map[string]int{
-		"total": stats.Total,
-	}
+	// 使用新的表格组件
+	tableConfig := ui.NewTableConfig()
+	tableConfig.Headers = []string{"  状态  ", " 数量 ", " 百分比 "}
+	tableConfig.BorderStyle = "rounded"
+	tableConfig.AlignRight = []int{1, 2}
 
+	var rows [][]string
+
+	// 已更新
 	if stats.Updated > 0 {
-		statsMap["updated"] = stats.Updated
+		percentage := float64(stats.Updated) / float64(stats.Total) * 100
+		rows = append(rows, []string{
+			ui.IconSuccess + " 已更新 ",
+			fmt.Sprintf(" %d ", stats.Updated),
+			fmt.Sprintf(" %.1f%% ", percentage),
+		})
 	}
 
+	// 跳过（无需修改）
 	if stats.Skipped > 0 {
-		statsMap["skipped"] = stats.Skipped
+		percentage := float64(stats.Skipped) / float64(stats.Total) * 100
+		rows = append(rows, []string{
+			ui.IconSkip + " 跳过  ",
+			fmt.Sprintf(" %d ", stats.Skipped),
+			fmt.Sprintf(" %.1f%% ", percentage),
+		})
 	}
 
+	// 失败
 	if stats.Failed > 0 {
-		statsMap["failed"] = stats.Failed
+		percentage := float64(stats.Failed) / float64(stats.Total) * 100
+		rows = append(rows, []string{
+			ui.IconError + " 失败  ",
+			fmt.Sprintf(" %d ", stats.Failed),
+			fmt.Sprintf(" %.1f%% ", percentage),
+		})
 	}
 
-	// 渲染统计表格
-	fmt.Println(ui.RenderStatsSummary(statsMap))
+	// 总计
+	rows = append(rows, []string{
+		"  总计  ",
+		fmt.Sprintf(" %d ", stats.Total),
+		" 100% ",
+	})
+
+	tableConfig.Rows = rows
+	table := ui.NewTable(tableConfig)
+	fmt.Println(table.Render())
 	fmt.Println()
 
 	// 添加总结信息
 	if stats.Updated == 0 && stats.Failed == 0 {
-		fmt.Println(ui.RenderInfo("所有文件标题都已是最佳状态"))
+		fmt.Println(ui.RenderInfo("✨ 所有文件标题都已是最佳状态"))
 	} else if stats.Updated > 0 {
-		fmt.Println(ui.RenderSuccess(fmt.Sprintf("成功更新 %d 个文件的标题", stats.Updated)))
+		fmt.Println(ui.RenderSuccess(fmt.Sprintf("✨ 成功更新 %d 个文件的标题", stats.Updated)))
+	}
+	if stats.Failed > 0 {
+		fmt.Println(ui.RenderWarning(fmt.Sprintf("⚠️  %d 个文件处理失败", stats.Failed)))
 	}
 }
 
@@ -182,7 +213,7 @@ func init() {
 		"删除损坏的文件时不需要确认")
 }
 
-func ParseEpub(file string, c *ClnameConfig, stats *ClnameStats) error {
+func ParseEpub(file string, c *ClnameConfig, stats *ClnameStats, progress *ui.ProgressTracker) error {
 	// 预先检测 EPUB 文件完整性
 	if err := util.ValidateEpubFile(file); err != nil {
 		if c.Debug {
@@ -229,6 +260,9 @@ func ParseEpub(file string, c *ClnameConfig, stats *ClnameStats) error {
 	newTitle := util.TryCleanTitle(title)
 	if title == newTitle {
 		stats.Skipped++
+		if progress != nil {
+			progress.IncrementSkipped()
+		}
 		return nil
 	}
 
@@ -240,6 +274,9 @@ func ParseEpub(file string, c *ClnameConfig, stats *ClnameStats) error {
 		fmt.Println(ui.RenderInfo("[试运行] 将更新标题"))
 		fmt.Println()
 		stats.Skipped++
+		if progress != nil {
+			progress.IncrementSkipped()
+		}
 		return nil
 	}
 
@@ -258,6 +295,9 @@ func ParseEpub(file string, c *ClnameConfig, stats *ClnameStats) error {
 	fmt.Println(ui.RenderSuccess("已更新"))
 	fmt.Println()
 	stats.Updated++
+	if progress != nil {
+		progress.IncrementSuccess()
+	}
 	return nil
 }
 
