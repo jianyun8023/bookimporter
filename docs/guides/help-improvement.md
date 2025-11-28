@@ -50,8 +50,8 @@ Example: `  # 清理单个文件
   # 预览模式（不实际修改）
   bookimporter clname -p /path/to/books/ -r -t
 
-  # 跳过错误，移动损坏文件
-  bookimporter clname -p /path/to/books/ -r -j --move-corrupted-to /corrupted/`,
+  # 处理损坏文件（默认会跳过错误）
+  bookimporter clname -p /path/to/books/ -r --move-corrupted-to /corrupted/`,
 ```
 
 ### 3. 参数说明 (Flags)
@@ -73,8 +73,8 @@ clnameCmd.Flags().BoolVarP(&config.Recursive, "recursive", "r", false,
 // 运行模式
 clnameCmd.Flags().BoolVarP(&config.DoTry, "dotry", "t", false, 
     "预览模式，显示将要进行的修改但不实际执行")
-clnameCmd.Flags().BoolVarP(&config.Skip, "skip", "j", false, 
-    "遇到无法解析或损坏的文件时跳过，继续处理其他文件")
+clnameCmd.Flags().BoolVarP(&config.IgnoreErrors, "ignore-errors", "i", false, 
+    "忽略错误退出码，即使有失败也返回 0（默认会跳过错误继续处理）")
 
 // 损坏文件处理（互斥选项）
 clnameCmd.Flags().StringVar(&config.MoveCorruptedTo, "move-corrupted-to", "", 
@@ -176,7 +176,7 @@ func ValidateConfig(c *ClnameConfig) error {
 
 运行模式:
   -t, --dotry         预览模式
-  -j, --skip          跳过错误
+  -i, --ignore-errors 忽略错误退出码（默认会跳过错误）
 
 损坏文件处理 (互斥):
   --move-corrupted-to 移动到指定目录
@@ -223,7 +223,7 @@ fmt.Println(ui.RenderInfo("提示: 请选择移动或删除损坏文件，不能
 ./bookimporter clname --force-delete
 
 # 测试完整功能
-./bookimporter clname -p ./test -r -j --move-corrupted-to ./corrupted
+./bookimporter clname -p ./test -r --move-corrupted-to ./corrupted
 ```
 
 ## 文档同步

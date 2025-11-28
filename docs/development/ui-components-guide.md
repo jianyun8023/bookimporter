@@ -377,7 +377,7 @@ if err != nil {
         // 显示错误并停止
         fmt.Println(ui.RenderError(fmt.Sprintf("处理失败: %v", err)))
         fmt.Println()
-        fmt.Println(ui.RenderInfo("提示: 使用 -j 参数可以跳过错误继续处理"))
+        fmt.Println(ui.RenderInfo("提示: 使用 -i 参数可以忽略错误退出码"))
         os.Exit(1)
     }
 }
