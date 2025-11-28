@@ -95,13 +95,13 @@ func rename(config *RenameConfig) {
 	if config.DoTry {
 		fmt.Println(ui.RenderTitle("📋 重命名预览"))
 		fmt.Println()
-		
+
 		// 创建预览表格
 		tableConfig := ui.NewTableConfig()
 		tableConfig.Headers = []string{" # ", " 原文件名 ", " → ", " 新文件名 "}
 		tableConfig.BorderStyle = "rounded"
 		tableConfig.CompactMode = false
-		
+
 		var rows [][]string
 		for i, file := range files {
 			newName := buildNewName(config.Template, config.StartIndex+i, file)
@@ -111,7 +111,7 @@ func rename(config *RenameConfig) {
 			} else {
 				outputPath = filepath.Join(filepath.Dir(file), newName)
 			}
-			
+
 			// 截断长文件名
 			oldName := file
 			if len(oldName) > 40 {
@@ -121,14 +121,14 @@ func rename(config *RenameConfig) {
 			if len(newPath) > 40 {
 				newPath = "..." + newPath[len(newPath)-37:]
 			}
-			
+
 			rows = append(rows, []string{
 				fmt.Sprintf(" %d ", i+1),
 				fmt.Sprintf(" %s ", oldName),
 				" → ",
 				fmt.Sprintf(" %s ", newPath),
 			})
-			
+
 			// 限制预览显示的行数
 			if i >= 19 && len(files) > 20 {
 				rows = append(rows, []string{
@@ -140,7 +140,7 @@ func rename(config *RenameConfig) {
 				break
 			}
 		}
-		
+
 		tableConfig.Rows = rows
 		table := ui.NewTable(tableConfig)
 		fmt.Println(table.Render())

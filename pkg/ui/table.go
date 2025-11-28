@@ -9,27 +9,27 @@ import (
 
 // TableConfig 表格配置
 type TableConfig struct {
-	Headers       []string
-	Rows          [][]string
-	ColumnWidths  []int  // 自定义列宽，nil 则自动计算
-	BorderStyle   string // "normal", "rounded", "double", "thick", "none"
-	HeaderStyle   lipgloss.Style
-	CellStyle     lipgloss.Style
-	BorderColor   lipgloss.Color
-	ShowHeader    bool
-	CompactMode   bool // 紧凑模式（减少 padding）
-	AlignRight    []int // 右对齐的列索引
+	Headers      []string
+	Rows         [][]string
+	ColumnWidths []int  // 自定义列宽，nil 则自动计算
+	BorderStyle  string // "normal", "rounded", "double", "thick", "none"
+	HeaderStyle  lipgloss.Style
+	CellStyle    lipgloss.Style
+	BorderColor  lipgloss.Color
+	ShowHeader   bool
+	CompactMode  bool  // 紧凑模式（减少 padding）
+	AlignRight   []int // 右对齐的列索引
 }
 
 // NewTableConfig 创建默认表格配置
 func NewTableConfig() *TableConfig {
 	return &TableConfig{
-		BorderStyle:  "normal",
-		HeaderStyle:  lipgloss.NewStyle().Bold(true).Foreground(ColorPrimary),
-		CellStyle:    lipgloss.NewStyle(),
-		BorderColor:  ColorMuted,
-		ShowHeader:   true,
-		CompactMode:  false,
+		BorderStyle: "normal",
+		HeaderStyle: lipgloss.NewStyle().Bold(true).Foreground(ColorPrimary),
+		CellStyle:   lipgloss.NewStyle(),
+		BorderColor: ColorMuted,
+		ShowHeader:  true,
+		CompactMode: false,
 	}
 }
 
@@ -307,4 +307,3 @@ func QuickStatsTable(stats map[string]interface{}) string {
 	table := NewTable(config)
 	return table.Render()
 }
-

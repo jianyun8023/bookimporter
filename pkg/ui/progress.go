@@ -11,17 +11,17 @@ import (
 
 // ProgressTracker 进度跟踪器
 type ProgressTracker struct {
-	total         int
-	current       int
-	startTime     time.Time
-	lastMessage   string
-	width         int
-	showTimeInfo  bool // 是否显示时间信息
-	showMessage   bool // 是否显示消息
-	compactMode   bool // 紧凑模式（单行）
-	successCount  int  // 成功计数
-	failureCount  int  // 失败计数
-	skippedCount  int  // 跳过计数
+	total        int
+	current      int
+	startTime    time.Time
+	lastMessage  string
+	width        int
+	showTimeInfo bool // 是否显示时间信息
+	showMessage  bool // 是否显示消息
+	compactMode  bool // 紧凑模式（单行）
+	successCount int  // 成功计数
+	failureCount int  // 失败计数
+	skippedCount int  // 跳过计数
 }
 
 // NewProgressTracker 创建新的进度跟踪器
@@ -412,4 +412,3 @@ func (ms *MultiSpinner) Render() string {
 
 	return strings.Join(lines, "\n")
 }
-
