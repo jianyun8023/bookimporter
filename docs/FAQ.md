@@ -111,10 +111,16 @@ ebook-meta --version
 
 **解决方案:**
 
-1. 使用 `-j` 选项跳过错误文件：
+1. 程序默认会跳过错误文件继续处理其他文件：
 
 ```bash
-bookimporter clname -p /path/to/books -j
+bookimporter clname -p /path/to/books -r
+```
+
+如果希望即使有失败也返回退出码 0，可以使用 `-i` 选项：
+
+```bash
+bookimporter clname -p /path/to/books -r -i
 ```
 
 2. 使用 Calibre 手动检查文件：
@@ -180,7 +186,7 @@ count=0
 for file in /path/to/books/*.epub; do
     count=$((count+1))
     echo "[$count/$total] Processing $file"
-    bookimporter clname -p "$file" -j
+    bookimporter clname -p "$file"
 done
 ```
 
@@ -278,21 +284,21 @@ find . -name "*.epub" | parallel bookimporter clname -p {}
 **缓解措施:**
 - 分批处理
 - 关闭其他占用内存的程序
-- 使用 `-j` 跳过问题文件
+- 程序默认会跳过问题文件继续处理
 
 ### Q20: 可以后台运行吗？
 
 可以，使用 `nohup` 或 `screen`：
 
 ```bash
-nohup bookimporter clname -p /large/library -j > process.log 2>&1 &
+nohup bookimporter clname -p /large/library -r > process.log 2>&1 &
 ```
 
 或使用 screen：
 
 ```bash
 screen -S bookimporter
-bookimporter clname -p /large/library -j
+bookimporter clname -p /large/library -r
 # 按 Ctrl+A 然后 D 分离会话
 ```
 

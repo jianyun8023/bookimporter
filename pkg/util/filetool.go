@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/jianyun8023/bookimporter/pkg/ui"
 )
 
 // Exists 判断所给路径文件/文件夹是否存在
@@ -88,7 +90,17 @@ func SafeDeleteFile(filePath string, needConfirm bool) error {
 	}
 
 	if needConfirm {
-		fmt.Printf("确认删除文件: %s? (y/N): ", filePath)
+		// 使用美化的警告框
+		fmt.Println()
+		warningMsg := ui.RenderMessageBox(
+			"删除确认",
+			fmt.Sprintf("即将删除文件:\n%s\n\n此操作无法撤销！", ui.RenderPath(filePath)),
+			"warning",
+		)
+		fmt.Println(warningMsg)
+		fmt.Println()
+		fmt.Print(ui.StyleWarning.Render("确认删除? (y/N): "))
+
 		reader := bufio.NewReader(os.Stdin)
 		input, err := reader.ReadString('\n')
 		if err != nil {
@@ -96,6 +108,7 @@ func SafeDeleteFile(filePath string, needConfirm bool) error {
 		}
 		input = strings.TrimSpace(strings.ToLower(input))
 		if input != "y" && input != "yes" {
+			fmt.Println(ui.RenderInfo("已取消删除操作"))
 			return fmt.Errorf("用户取消删除操作")
 		}
 	}

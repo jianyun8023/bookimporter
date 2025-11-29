@@ -64,14 +64,17 @@ go build -o bookimporter
 # 清理单个文件
 bookimporter clname -p book.epub
 
-# 批量清理目录
+# 批量清理目录（仅当前目录）
 bookimporter clname -p /path/to/books/
+
+# 递归清理目录及所有子目录
+bookimporter clname -p /path/to/books/ -r
 
 # 预览模式（不实际修改）
 bookimporter clname -p /path/to/books/ -t
 
 # 清理时自动移动损坏的文件
-bookimporter clname -p /path/to/books/ --move-corrupted-to /path/to/corrupted/
+bookimporter clname -p /path/to/books/ -r --move-corrupted-to /path/to/corrupted/
 ```
 
 #### 批量重命名

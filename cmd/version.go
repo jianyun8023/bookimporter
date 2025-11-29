@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"runtime"
+
+	"github.com/jianyun8023/bookimporter/pkg/ui"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -17,13 +19,69 @@ var (
 // versionCmd represents the version command.
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Return the bookimporter version info",
+	Short: "显示 BookImporter 版本信息",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("bookimporter version info")
-		fmt.Printf("  - Version: %v\n", gitVersion)
-		fmt.Printf("  - Commit: %v\n", gitCommit)
-		fmt.Printf("  - Build Date: %v\n", buildDate)
-		fmt.Printf("  - Go Version: %v\n", goVersion)
-		fmt.Printf("  - Platform: %s\n", platform)
+		// 打印美化的版本信息
+		fmt.Println(ui.RenderHeader("📚 BookImporter", "书籍导入助手工具"))
+		fmt.Println()
+
+		// 创建版本信息表格
+		tableConfig := ui.NewTableConfig()
+		tableConfig.Headers = []string{" 项目 ", " 值 "}
+		tableConfig.BorderStyle = "rounded"
+		tableConfig.CompactMode = false
+
+		var rows [][]string
+
+		// 版本号
+		version := gitVersion
+		if version == "" {
+			version = "dev"
+		}
+		rows = append(rows, []string{
+			" 版本 ",
+			fmt.Sprintf(" %s ", version),
+		})
+
+		// Commit
+		if gitCommit != "" {
+			commit := gitCommit
+			if len(commit) > 12 {
+				commit = commit[:12]
+			}
+			rows = append(rows, []string{
+				" Commit ",
+				fmt.Sprintf(" %s ", commit),
+			})
+		}
+
+		// 构建日期
+		if buildDate != "" {
+			rows = append(rows, []string{
+				" 构建日期 ",
+				fmt.Sprintf(" %s ", buildDate),
+			})
+		}
+
+		// Go 版本
+		rows = append(rows, []string{
+			" Go 版本 ",
+			fmt.Sprintf(" %s ", goVersion),
+		})
+
+		// 平台
+		rows = append(rows, []string{
+			" 平台 ",
+			fmt.Sprintf(" %s ", platform),
+		})
+
+		tableConfig.Rows = rows
+		table := ui.NewTable(tableConfig)
+		fmt.Println(table.Render())
+		fmt.Println()
+
+		// 项目信息
+		fmt.Println(ui.RenderInfo("项目地址: https://github.com/jianyun8023/bookimporter"))
+		fmt.Println(ui.RenderInfo("使用 'bookimporter --help' 查看帮助信息"))
 	},
 }

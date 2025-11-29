@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-BookImporter 是一个用 Go 语言开发的书籍导入助手工具，旨在帮助用户管理和整理电子书库。
+BookImporter 是一个用 Go 语言开发的书籍导入助手工具，旨在帮助用户管理和整理电子书库。该项目具有现代化的终端用户界面和完善的功能特性。
 
 ### 核心功能
 
@@ -11,17 +11,30 @@ BookImporter 是一个用 Go 语言开发的书籍导入助手工具，旨在帮
    - 移除常见的括号标记：`（）【】()[]`
    - 使用 calibre 的 `ebook-meta` 工具修改元数据
    - 支持批量处理目录中的所有 EPUB 文件
+   - 支持递归搜索子目录
+   - 提供预览模式和损坏文件处理
 
-2. **文件批量重命名 (rename)**
+2. **EPUB 文件检测 (check)**
+   - 检测 EPUB 文件完整性
+   - 验证 ZIP 结构和元数据
+   - 支持批量检测和递归搜索
+   - 可移动或删除损坏的文件
+
+3. **文件批量重命名 (rename)**
    - 按自定义模板批量重命名文件
    - 支持递归搜索子目录
    - 支持移动文件到指定输出目录
    - 序列号自动编号功能
+   - 提供表格化预览
 
 ## 技术栈
 
 - **语言**: Go 1.18+
 - **CLI框架**: [Cobra](https://github.com/spf13/cobra) - 强大的命令行应用框架
+- **UI组件**: 
+  - [Lipgloss](https://github.com/charmbracelet/lipgloss) v1.1.0 - 样式和布局
+  - [Bubbles](https://github.com/charmbracelet/bubbles) v0.21.0 - TUI 组件
+  - [go-isatty](https://github.com/mattn/go-isatty) v0.0.20 - 终端检测
 - **EPUB处理**: [epub](https://github.com/kapmahc/epub) - EPUB 文件解析库
 - **外部依赖**: Calibre 的 ebook-meta 工具（用于修改 EPUB 元数据）
 
@@ -29,50 +42,101 @@ BookImporter 是一个用 Go 语言开发的书籍导入助手工具，旨在帮
 
 ```
 bookimporter/
-├── cmd/                    # 命令定义
-│   ├── root.go            # 根命令
-│   ├── clname.go          # 清理标题命令
-│   ├── rename.go          # 重命名命令
-│   └── version.go         # 版本命令
-├── pkg/                   # 包和工具
-│   └── util/              # 工具函数
-│       ├── cleanname.go   # 标题清理逻辑
+├── cmd/                        # 命令定义
+│   ├── root.go                # 根命令
+│   ├── check.go               # EPUB 文件检测命令
+│   ├── clname.go              # 清理标题命令
+│   ├── rename.go              # 重命名命令
+│   └── version.go             # 版本命令
+├── pkg/                       # 包和工具
+│   ├── ui/                    # UI 组件库 (v2.0新增)
+│   │   ├── styles.go          # 颜色主题和文本样式
+│   │   ├── components.go      # 可复用 UI 组件
+│   │   ├── progress.go        # 进度跟踪器
+│   │   ├── table.go           # 表格生成器
+│   │   └── terminal.go        # 终端能力检测
+│   └── util/                  # 工具函数
+│       ├── cleanname.go       # 标题清理逻辑
 │       ├── cleanname_test.go
-│       └── filetool.go    # 文件操作工具
-├── docs/                  # 文档目录
-├── main.go               # 程序入口
-├── go.mod                # Go 模块定义
-└── README.md             # 用户文档
+│       ├── epubcheck.go       # EPUB 检测逻辑
+│       ├── epubcheck_test.go
+│       └── filetool.go        # 文件操作工具
+├── docs/                      # 文档目录
+│   ├── changelogs/            # 版本变更记录
+│   ├── development/           # 开发文档
+│   ├── guides/                # 使用指南
+│   ├── USER_GUIDE.md          # 用户指南
+│   └── ...                    # 其他文档
+├── test/                      # 测试文件
+├── main.go                    # 程序入口
+├── go.mod                     # Go 模块定义
+├── CLAUDE.md                  # 本文件 - AI 开发指南
+└── README.md                  # 项目说明
 ```
 
 ## 命令使用示例
 
-### 1. 清理书籍标题 (clname)
+### 1. EPUB 文件检测 (check)
+
+```bash
+# 检测单个文件
+bookimporter check -p /path/to/book.epub
+
+# 批量检测目录
+bookimporter check -p /path/to/books/
+
+# 递归检测所有子目录
+bookimporter check -p /path/to/books/ -r
+
+# 移动损坏的文件
+bookimporter check -p /path/to/books/ -r --move-to /corrupted/
+
+# 删除损坏的文件（需确认）
+bookimporter check -p /path/to/books/ --delete
+```
+
+**参数说明:**
+- `-p, --path`: 目录或文件路径
+- `-r, --recursive`: 递归搜索子目录
+- `--move-to`: 移动损坏文件到指定目录
+- `--delete`: 删除损坏的文件
+- `--force`: 删除时不需要确认
+
+### 2. 清理书籍标题 (clname)
 
 ```bash
 # 清理单个文件
 bookimporter clname -p /path/to/book.epub
 
-# 批量清理目录下所有 EPUB 文件
+# 批量清理目录下所有 EPUB 文件（仅当前目录）
 bookimporter clname -p /path/to/books/
 
-# 尝试运行（不实际修改）
-bookimporter clname -p /path/to/books/ -t
+# 递归搜索子目录并清理
+bookimporter clname -p /path/to/books/ -r
 
-# 跳过无法解析的书籍
-bookimporter clname -p /path/to/books/ -j
+# 预览模式（不实际修改）
+bookimporter clname -p /path/to/books/ -r -t
 
-# 调试模式
-bookimporter clname -p /path/to/books/ -d
+# 忽略错误退出码（适用于脚本）
+bookimporter clname -p /path/to/books/ -r -i
+
+# 移动损坏的文件
+bookimporter clname -p /path/to/books/ -r --move-corrupted-to /corrupted/
 ```
 
 **参数说明:**
 - `-p, --path`: 目录或文件路径
-- `-t, --dotry`: 尝试运行，不实际修改
-- `-j, --skip`: 跳过无法解析的书籍
+- `-r, --recursive`: 递归搜索子目录
+- `-t, --dotry`: 预览模式，不实际修改
+- `-i, --ignore-errors`: 忽略错误，即使有失败也返回退出码 0
+- `--move-corrupted-to`: 移动损坏文件到指定目录
+- `--delete-corrupted`: 删除损坏的文件
+- `--force-delete`: 删除时不需要确认
 - `-d, --debug`: 调试模式
 
-### 2. 批量重命名 (rename)
+**注意:** v2025-11-28 起，默认行为已改为跳过错误继续处理。使用 `-i` 可控制退出码。
+
+### 3. 批量重命名 (rename)
 
 ```bash
 # 基本用法：重命名当前目录下的 txt 文件
@@ -166,6 +230,22 @@ func init() {
 
 ## 常见问题
 
+### 通用问题
+
+**Q: 终端不显示颜色怎么办？**
+A: 设置环境变量 `export NO_COLOR=1` 可以禁用彩色输出。程序会自动检测终端能力并降级。
+
+**Q: 看到乱码字符怎么办？**
+A: 确保终端支持 UTF-8：`export LANG=en_US.UTF-8`。程序会自动降级 Unicode 字符为 ASCII。
+
+### check 命令相关
+
+**Q: check 命令和 clname 命令有什么区别？**
+A: check 仅检测文件完整性，不修改文件；clname 会修改书籍标题元数据。
+
+**Q: 损坏的文件可以修复吗？**
+A: 一般无法修复，建议使用 `--move-to` 移动到单独目录手动处理。
+
 ### clname 命令相关
 
 **Q: 为什么执行失败，提示找不到 ebook-meta？**
@@ -173,6 +253,12 @@ A: 需要安装 Calibre 软件包，它包含了 ebook-meta 命令行工具。
 
 **Q: 如何自定义清理规则？**
 A: 修改 `pkg/util/cleanname.go` 中的 `TryCleanTitle` 函数，添加自定义的清理逻辑。
+
+**Q: 默认的错误处理行为是什么？**
+A: v2025-11-28 起，默认跳过错误继续处理其他文件。有失败时返回退出码 1，使用 `-i` 参数可返回退出码 0。
+
+**Q: 什么时候使用 -i 参数？**
+A: 当在脚本或 CI/CD 中使用，不希望因部分失败而中断后续流程时，可使用 `-i` 参数忽略错误退出码。
 
 ### rename 命令相关
 
@@ -201,14 +287,102 @@ A: 可以多次使用 `-f` 参数，例如：`-f epub -f pdf -f mobi`
 - 项目地址: https://github.com/jianyun8023/bookimporter
 - 问题反馈: https://github.com/jianyun8023/bookimporter/issues
 
+## UI 组件库 (v2.0)
+
+项目包含完整的终端 UI 组件库 (`pkg/ui/`)，提供现代化的用户界面。
+
+### 核心组件
+
+1. **styles.go** - 颜色主题、文本样式、状态指示符
+2. **components.go** - 可复用 UI 组件（表格、消息框等）
+3. **progress.go** - 进度跟踪器（标准、紧凑、Spinner）
+4. **table.go** - 表格生成器（多种边框样式）
+5. **terminal.go** - 终端能力检测和自动降级
+
+### 使用示例
+
+```go
+import "github.com/jianyun8023/bookimporter/pkg/ui"
+
+// 彩色输出
+fmt.Println(ui.RenderSuccess("操作成功"))
+fmt.Println(ui.RenderError("操作失败"))
+
+// 进度跟踪
+progress := ui.NewCompactProgressTracker(total)
+progress.IncrementSuccess()
+fmt.Print("\r" + progress.RenderCompact("file.txt"))
+
+// 表格展示
+config := ui.NewTableConfig()
+config.Headers = []string{"列1", "列2"}
+config.Rows = [][]string{{"值1", "值2"}}
+fmt.Println(ui.RenderTable(config))
+```
+
+### 详细文档
+
+- `docs/development/ui-components-guide.md` - UI 组件使用指南
+- `docs/changelogs/v2.0.0-ui-upgrade.md` - v2.0 升级完整记录
+
+## 文档结构
+
+```
+docs/
+├── changelogs/                          # 版本变更记录
+│   ├── v2.0.0-ui-upgrade.md            # UI 组件库升级记录
+│   └── v2025-11-28-command-improvements.md  # 命令优化记录
+├── development/                         # 开发文档
+│   └── ui-components-guide.md          # UI 组件使用指南
+├── guides/                             # 使用指南
+│   └── help-improvement.md             # 帮助信息改进指南
+├── USER_GUIDE.md                       # 用户指南
+├── API.md                              # API 文档
+├── ARCHITECTURE.md                     # 架构文档
+├── CONTRIBUTING.md                     # 贡献指南
+├── FAQ.md                              # 常见问题
+├── INSTALLATION.md                     # 安装指南
+├── RELEASE.md                          # 发布流程
+├── SECURITY.md                         # 安全说明
+└── LICENSE.md                          # 许可证
+```
+
+### 文档分类说明
+
+- **changelogs/** - 详细的版本变更记录，按日期或版本号命名
+- **development/** - 开发相关文档，包括组件指南、架构设计等
+- **guides/** - 使用指南和最佳实践
+- **根目录文档** - 通用文档，如用户指南、FAQ、贡献指南等
+
 ## AI 助手提示
 
 在协助开发此项目时，请注意：
 
+### 代码质量
 1. **保持代码简洁**: Go 语言强调简洁和可读性
 2. **错误处理**: 确保所有可能的错误都被妥善处理
 3. **测试覆盖**: 为新功能编写相应的测试用例
 4. **向后兼容**: 修改现有功能时保持向后兼容性
-5. **文档更新**: 功能变更时同步更新文档
-6. **性能考虑**: 处理大量文件时注意性能优化
+5. **性能考虑**: 处理大量文件时注意性能优化
 
+### UI 相关
+6. **使用 UI 组件**: 优先使用 `pkg/ui/` 中的组件，保持视觉一致性
+7. **终端兼容**: 考虑不同终端环境，测试自动降级功能
+8. **进度反馈**: 批量操作时提供清晰的进度展示
+9. **错误友好**: 使用 `ui.RenderError()` 等方法美化错误输出
+
+### 文档维护
+10. **文档同步**: 功能变更时同步更新相关文档
+11. **文档归类**: 新文档放入 `docs/` 对应的分类目录
+    - 版本变更 → `docs/changelogs/`
+    - 开发文档 → `docs/development/`
+    - 使用指南 → `docs/guides/`
+12. **示例代码**: 提供实用的代码示例
+13. **帮助信息**: 为新命令编写详细的帮助信息（参考 `docs/guides/help-improvement.md`）
+14. **变更日志**: 重要更新需在 `Changelog.md` 和 `docs/changelogs/` 中记录
+
+### 最佳实践
+15. **参数验证**: 添加必要的参数验证和友好提示
+16. **安全性**: 删除等危险操作需要确认
+17. **测试充分**: 编写单元测试和集成测试
+18. **性能测试**: 批量操作测试性能和内存占用

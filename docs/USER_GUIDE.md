@@ -42,8 +42,9 @@ bookimporter clname [选项]
 | 选项 | 简写 | 默认值 | 说明 |
 |------|------|--------|------|
 | --path | -p | ./ | 目标文件或目录路径 |
+| --recursive | -r | false | 递归搜索子目录 |
 | --dotry | -t | false | 尝试运行，不实际修改 |
-| --skip | -j | false | 跳过无法解析的书籍 |
+| --ignore-errors | -i | false | 忽略错误退出码，即使有失败也返回 0 |
 | --debug | -d | false | 启用调试模式 |
 | --move-corrupted-to | | | 将损坏的文件移动到指定目录 |
 | --delete-corrupted | | false | 删除损坏的文件 |
@@ -62,13 +63,21 @@ bookimporter clname -p /path/to/book.epub
 路径: /path/to/book.epub 新名称: 三体 旧名称: 三体【刘慈欣】
 ```
 
-#### 2. 批量清理目录
+#### 2. 批量清理目录（仅当前目录）
 
 ```bash
 bookimporter clname -p /path/to/books/
 ```
 
-程序会自动处理目录下所有 `.epub` 文件。
+程序会自动处理目录下所有 `.epub` 文件（不包含子目录）。
+
+#### 2.1. 递归清理目录及子目录
+
+```bash
+bookimporter clname -p /path/to/books/ -r
+```
+
+使用 `-r` 参数可以递归搜索并处理所有子目录中的 EPUB 文件。
 
 #### 3. 预览模式（不实际修改）
 
@@ -78,13 +87,17 @@ bookimporter clname -p /path/to/books/ -t
 
 这会显示将要进行的修改，但不会实际修改文件。
 
-#### 4. 跳过错误
+#### 4. 忽略错误退出码
 
 ```bash
-bookimporter clname -p /path/to/books/ -j
+bookimporter clname -p /path/to/books/ -i
 ```
 
-遇到无法解析的 EPUB 文件时继续处理其他文件，而不是终止。
+**说明**: 从 v2025-11-28 版本开始，`clname` 命令默认会跳过错误继续处理其他文件。使用 `-i` 参数可以让程序即使有失败也返回退出码 0（适用于 CI/CD 脚本场景）。
+
+**行为变更**:
+- 有文件处理失败时，默认返回退出码 `1`
+- 使用 `-i` 参数后，即使有失败也返回退出码 `0`
 
 #### 5. 调试模式
 
@@ -456,7 +469,7 @@ bookimporter clname -p /path/to/books/ --delete-corrupted --force-delete
 #!/bin/bash
 for dir in ~/Books/*/; do
     echo "Processing $dir"
-    bookimporter clname -p "$dir" -j
+    bookimporter clname -p "$dir" -r
 done
 ```
 
@@ -491,7 +504,7 @@ bookimporter rename ~/Downloads -f epub -t "new-@n" --do-try
 bookimporter rename ~/Downloads -f epub -t "new-@n" -o ~/Books/ToProcess
 
 # 4. 清理书籍标题
-bookimporter clname -p ~/Books/ToProcess -j
+bookimporter clname -p ~/Books/ToProcess -r
 
 # 5. 移动到最终位置
 mv ~/Books/ToProcess/* ~/Books/Library/
@@ -534,12 +547,16 @@ bookimporter check -p /path/to/books --delete --do-try
 tar -czf books_backup_$(date +%Y%m%d).tar.gz ~/Books/
 ```
 
-### 3. 使用 skip 选项
+### 3. 处理大量文件
 
-处理大量文件时使用 `-j` 跳过错误：
+处理大量文件时，程序默认会跳过错误继续处理。如果不关心退出码，可使用 `-i` 参数：
 
 ```bash
-bookimporter clname -p /large/library -j > errors.log 2>&1
+# 默认会跳过错误，但失败时返回退出码 1
+bookimporter clname -p /large/library -r > cleanup.log 2>&1
+
+# 使用 -i 忽略退出码，总是返回 0
+bookimporter clname -p /large/library -r -i > cleanup.log 2>&1
 ```
 
 ### 4. 分批处理
