@@ -3,27 +3,19 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 
+	"github.com/jianyun8023/bookimporter/internal/application/check"
+	"github.com/jianyun8023/bookimporter/internal/infrastructure/epub"
+	"github.com/jianyun8023/bookimporter/internal/infrastructure/filesystem"
 	"github.com/jianyun8023/bookimporter/pkg/ui"
-	"github.com/jianyun8023/bookimporter/pkg/util"
 	"github.com/spf13/cobra"
 )
 
 // CheckConfig 检测命令配置
-type CheckConfig struct {
-	Path       string // 文件或目录路径
-	Recursive  bool   // 是否递归搜索
-	OnlyErrors bool   // 只显示有问题的文件
-	MoveTo     string // 移动损坏文件到指定目录
-	Delete     bool   // 删除损坏的文件
-	Force      bool   // 删除时不需要确认
-	DoTry      bool   // 试运行模式
-	Debug      bool   // 调试模式
-}
-
-var checkConfig = &CheckConfig{}
+// 注意：这里的结构体是为了绑定 cobra flags， application 层有自己的 Config
+// 我们可以直接使用 application 层的 Config，或者在这里做一个转换。
+// 为了代码清晰，我们直接实例化 application.Config。
+var checkCmdConfig = &check.Config{}
 
 var checkCmd = &cobra.Command{
 	Use:   "check",
@@ -31,12 +23,21 @@ var checkCmd = &cobra.Command{
 	Long: `检测 EPUB 文件是否损坏，包括 ZIP 结构、必需文件和元数据验证。
 可以选择将损坏的文件移动到指定目录或删除。`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := validateCheckConfig(checkConfig); err != nil {
+		// 依赖注入
+		repo := filesystem.NewRepository()
+		epubService := epub.NewService()
+		svc := check.NewService(repo, epubService)
+
+		if err := validateCheckConfig(checkCmdConfig, repo); err != nil {
 			fmt.Fprintf(os.Stderr, "配置错误: %v\n", err)
 			os.Exit(1)
 		}
 
-		if err := runCheck(checkConfig); err != nil {
+		// 打印头部
+		fmt.Println(ui.RenderHeader("EPUB 文件检测", "检查文件完整性、ZIP 结构和元数据"))
+		fmt.Println()
+
+		if err := svc.Run(checkCmdConfig); err != nil {
 			fmt.Fprintf(os.Stderr, "检测失败: %v\n", err)
 			os.Exit(1)
 		}
@@ -44,33 +45,34 @@ var checkCmd = &cobra.Command{
 }
 
 func init() {
-	checkCmd.Flags().StringVarP(&checkConfig.Path, "path", "p", "",
+	checkCmd.Flags().StringVarP(&checkCmdConfig.Path, "path", "p", "",
 		"文件或目录路径（必需）")
-	checkCmd.Flags().BoolVarP(&checkConfig.Recursive, "recursive", "r", false,
+	checkCmd.Flags().BoolVarP(&checkCmdConfig.Recursive, "recursive", "r", false,
 		"递归搜索子目录")
-	checkCmd.Flags().BoolVar(&checkConfig.OnlyErrors, "only-errors", false,
+	checkCmd.Flags().BoolVar(&checkCmdConfig.OnlyErrors, "only-errors", false,
 		"只显示有问题的文件")
-	checkCmd.Flags().StringVar(&checkConfig.MoveTo, "move-to", "",
+	checkCmd.Flags().StringVar(&checkCmdConfig.MoveTo, "move-to", "",
 		"移动损坏文件到指定目录")
-	checkCmd.Flags().BoolVar(&checkConfig.Delete, "delete", false,
+	checkCmd.Flags().BoolVar(&checkCmdConfig.Delete, "delete", false,
 		"删除损坏的文件")
-	checkCmd.Flags().BoolVar(&checkConfig.Force, "force", false,
+	checkCmd.Flags().BoolVar(&checkCmdConfig.Force, "force", false,
 		"删除时不需要确认（与 --delete 配合）")
-	checkCmd.Flags().BoolVar(&checkConfig.DoTry, "do-try", false,
+	checkCmd.Flags().BoolVar(&checkCmdConfig.DoTry, "do-try", false,
 		"试运行模式，不实际执行操作")
-	checkCmd.Flags().BoolVarP(&checkConfig.Debug, "debug", "d", false,
+	checkCmd.Flags().BoolVarP(&checkCmdConfig.Debug, "debug", "d", false,
 		"调试模式")
 
 	checkCmd.MarkFlagRequired("path")
 }
 
 // validateCheckConfig 验证配置
-func validateCheckConfig(cfg *CheckConfig) error {
+// 这里需要 repo 来检查文件是否存在，或者使用 os.Stat
+func validateCheckConfig(cfg *check.Config, repo *filesystem.Repository) error {
 	if cfg.Path == "" {
 		return fmt.Errorf("必须指定 --path 参数")
 	}
 
-	if !util.Exists(cfg.Path) {
+	if !repo.Exists(cfg.Path) {
 		return fmt.Errorf("路径不存在: %s", cfg.Path)
 	}
 
@@ -85,270 +87,4 @@ func validateCheckConfig(cfg *CheckConfig) error {
 	}
 
 	return nil
-}
-
-// runCheck 执行检测
-func runCheck(cfg *CheckConfig) error {
-	var files []string
-
-	// 打印头部
-	fmt.Println(ui.RenderHeader("EPUB 文件检测", "检查文件完整性、ZIP 结构和元数据"))
-	fmt.Println()
-
-	// 收集要检测的文件
-	if util.IsFile(cfg.Path) {
-		if !strings.HasSuffix(strings.ToLower(cfg.Path), ".epub") {
-			return fmt.Errorf("不是 EPUB 文件: %s", cfg.Path)
-		}
-		files = append(files, cfg.Path)
-	} else {
-		var err error
-		files, err = collectEpubFiles(cfg.Path, cfg.Recursive)
-		if err != nil {
-			return fmt.Errorf("收集文件失败: %w", err)
-		}
-	}
-
-	if len(files) == 0 {
-		fmt.Println(ui.RenderWarning("未找到 EPUB 文件"))
-		return nil
-	}
-
-	// 显示找到的文件数
-	fmt.Println(ui.RenderInfo(fmt.Sprintf("找到 %d 个 EPUB 文件", len(files))))
-	fmt.Println()
-
-	// 统计信息
-	stats := &CheckStats{
-		Total:   len(files),
-		Passed:  0,
-		Failed:  0,
-		Handled: 0,
-	}
-
-	// 创建增强的进度跟踪器
-	progress := ui.NewCompactProgressTracker(len(files))
-	progress.SetShowMessage(true)
-
-	// 检测每个文件
-	for i, file := range files {
-		progress.SetMessage(fmt.Sprintf("%s", filepath.Base(file)))
-
-		// 显示进度（只在批量模式下显示）
-		if len(files) > 1 {
-			fmt.Printf("\r%s", progress.RenderCompact())
-		}
-
-		err := checkSingleFile(file, cfg, stats)
-
-		// 更新统计计数
-		if err == nil {
-			progress.IncrementSuccess()
-		} else {
-			if cfg.Debug {
-				fmt.Fprintf(os.Stderr, "\n处理文件 %s 时发生错误: %v\n", file, err)
-			}
-			progress.IncrementFailure()
-		}
-
-		// 在单个文件模式下不需要清除行
-		if len(files) > 1 && i < len(files)-1 {
-			// 清除进度行，为文件详情腾出空间
-			fmt.Print("\r" + strings.Repeat(" ", 120) + "\r")
-		}
-	}
-
-	// 清除最后的进度行
-	if len(files) > 1 {
-		fmt.Print("\r" + strings.Repeat(" ", 120) + "\r")
-		// 显示最终进度统计
-		fmt.Println(progress.RenderWithStats())
-		fmt.Println()
-	}
-
-	// 打印统计信息
-	fmt.Println()
-	printStats(stats)
-
-	return nil
-}
-
-// CheckStats 检测统计
-type CheckStats struct {
-	Total   int // 总文件数
-	Passed  int // 通过数
-	Failed  int // 失败数
-	Handled int // 已处理数（移动或删除）
-}
-
-// collectEpubFiles 收集 EPUB 文件
-func collectEpubFiles(dir string, recursive bool) ([]string, error) {
-	var files []string
-
-	if recursive {
-		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if !info.IsDir() && strings.HasSuffix(strings.ToLower(path), ".epub") {
-				files = append(files, path)
-			}
-			return nil
-		})
-		return files, err
-	}
-
-	// 非递归模式，只查找当前目录
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".epub") {
-			files = append(files, filepath.Join(dir, entry.Name()))
-		}
-	}
-
-	return files, nil
-}
-
-// checkSingleFile 检测单个文件
-func checkSingleFile(file string, cfg *CheckConfig, stats *CheckStats) error {
-	err := util.ValidateEpubFile(file)
-
-	if err == nil {
-		// 文件正常
-		stats.Passed++
-		if !cfg.OnlyErrors {
-			fmt.Println(ui.FormatFilePath("检查", file))
-			fmt.Println(ui.RenderSuccess("通过"))
-			fmt.Println()
-		}
-		return nil
-	}
-
-	// 文件有问题
-	stats.Failed++
-	fmt.Println(ui.FormatFilePath("检查", file))
-	fmt.Println(ui.RenderError(fmt.Sprintf("失败: %v", err)))
-
-	// 处理损坏的文件
-	if cfg.MoveTo != "" {
-		if err := handleMoveFile(file, cfg.MoveTo, cfg.DoTry); err != nil {
-			fmt.Println(ui.RenderError(fmt.Sprintf("移动失败: %v", err)))
-		} else {
-			stats.Handled++
-		}
-	} else if cfg.Delete {
-		if err := handleDeleteFile(file, cfg.Force, cfg.DoTry); err != nil {
-			fmt.Println(ui.RenderError(fmt.Sprintf("删除失败: %v", err)))
-		} else {
-			stats.Handled++
-		}
-	}
-
-	fmt.Println()
-	return nil
-}
-
-// handleMoveFile 处理移动文件
-func handleMoveFile(srcPath, dstDir string, doTry bool) error {
-	if doTry {
-		// 试运行模式，只显示将要执行的操作
-		fileName := filepath.Base(srcPath)
-		expectedPath := filepath.Join(dstDir, fileName)
-		fmt.Println(ui.RenderInfo(fmt.Sprintf("[试运行] 将移动到: %s", expectedPath)))
-		return nil
-	}
-
-	newPath, err := util.MoveFileWithConflictHandling(srcPath, dstDir)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(ui.RenderInfo(fmt.Sprintf("已移动到: %s", newPath)))
-	return nil
-}
-
-// handleDeleteFile 处理删除文件
-func handleDeleteFile(filePath string, force, doTry bool) error {
-	if doTry {
-		// 试运行模式，只显示将要执行的操作
-		fmt.Println(ui.RenderInfo("[试运行] 将删除"))
-		return nil
-	}
-
-	needConfirm := !force
-	if err := util.SafeDeleteFile(filePath, needConfirm); err != nil {
-		return err
-	}
-
-	fmt.Println(ui.RenderInfo("已删除"))
-	return nil
-}
-
-// printStats 打印统计信息
-func printStats(stats *CheckStats) {
-	fmt.Println(ui.RenderSeparator(60))
-	fmt.Println()
-
-	// 使用新的表格组件
-	tableConfig := ui.NewTableConfig()
-	tableConfig.Headers = []string{"  状态  ", " 数量 ", " 百分比 "}
-	tableConfig.BorderStyle = "rounded"
-	tableConfig.AlignRight = []int{1, 2} // 数字列右对齐
-
-	var rows [][]string
-
-	// 通过
-	if stats.Passed > 0 {
-		percentage := float64(stats.Passed) / float64(stats.Total) * 100
-		rows = append(rows, []string{
-			ui.IconSuccess + " 通过  ",
-			fmt.Sprintf(" %d ", stats.Passed),
-			fmt.Sprintf(" %.1f%% ", percentage),
-		})
-	}
-
-	// 失败
-	if stats.Failed > 0 {
-		percentage := float64(stats.Failed) / float64(stats.Total) * 100
-		rows = append(rows, []string{
-			ui.IconError + " 失败  ",
-			fmt.Sprintf(" %d ", stats.Failed),
-			fmt.Sprintf(" %.1f%% ", percentage),
-		})
-	}
-
-	// 已处理
-	if stats.Handled > 0 {
-		rows = append(rows, []string{
-			ui.IconInfo + " 已处理 ",
-			fmt.Sprintf(" %d ", stats.Handled),
-			fmt.Sprintf(" - "),
-		})
-	}
-
-	// 总计
-	rows = append(rows, []string{
-		"  总计  ",
-		fmt.Sprintf(" %d ", stats.Total),
-		" 100% ",
-	})
-
-	tableConfig.Rows = rows
-	table := ui.NewTable(tableConfig)
-	fmt.Println(table.Render())
-	fmt.Println()
-
-	// 添加成功/失败的总结信息
-	if stats.Failed == 0 {
-		fmt.Println(ui.RenderSuccess(fmt.Sprintf("✨ 所有 %d 个文件检测通过！", stats.Total)))
-	} else {
-		fmt.Println(ui.RenderWarning(fmt.Sprintf("⚠️  发现 %d 个问题文件", stats.Failed)))
-		if stats.Handled > 0 {
-			fmt.Println(ui.RenderInfo(fmt.Sprintf("已处理 %d 个问题文件", stats.Handled)))
-		}
-	}
 }

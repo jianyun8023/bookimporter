@@ -1,4 +1,4 @@
-package util
+package naming
 
 import (
 	"encoding/json"
@@ -20,6 +20,9 @@ type Item2 struct {
 }
 
 func TestCleanTitle(t *testing.T) {
+	// 初始化 Cleaner
+	cleaner := NewCleaner()
+
 	tests := []struct {
 		input    string
 		expected string
@@ -42,21 +45,23 @@ func TestCleanTitle(t *testing.T) {
 		{"课外英语-美国总统演讲选萃(上)（双语版）", "课外英语-美国总统演讲选萃(上)（双语版）"},
 	}
 
-	parseAll()
+	// parseAll is ignored as it depends on local file path "/Users/zhaojianyun/Downloads/all.json"
+	// parseAll()
 
 	for _, test := range tests {
-		result := TryCleanTitle(test.input)
+		result := cleaner.Clean(test.input)
 		if result != test.expected {
 			t.Errorf("CleanTitle(%q) = %q; want %q", test.input, result, test.expected)
 		}
 	}
 }
 
+// Keeping helper for reference but it won't work in CI/CD without the file
 func parseAll() bool {
 	// 打开 JSON 文件
 	file, err := os.Open("/Users/zhaojianyun/Downloads/all.json")
 	if err != nil {
-		fmt.Println("Error opening file:", err)
+		// fmt.Println("Error opening file:", err)
 		return true
 	}
 	defer file.Close()

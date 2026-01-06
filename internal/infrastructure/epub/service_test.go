@@ -1,4 +1,4 @@
-package util
+package epub
 
 import (
 	"archive/zip"
@@ -7,12 +7,13 @@ import (
 	"testing"
 )
 
-func TestValidateEpubFile_FileNotExists(t *testing.T) {
-	err := ValidateEpubFile("/path/to/nonexistent/file.epub")
+func TestService_Validate_FileNotExists(t *testing.T) {
+	s := NewService()
+	err := s.Validate("/path/to/nonexistent/file.epub")
 	if err == nil {
 		t.Error("期望返回错误，但得到 nil")
 	}
-	if !IsEpubError(err) {
+	if !isEpubError(err) {
 		t.Error("期望返回 EpubError")
 	}
 	epubErr := err.(*EpubError)
@@ -21,7 +22,8 @@ func TestValidateEpubFile_FileNotExists(t *testing.T) {
 	}
 }
 
-func TestValidateEpubFile_CorruptedZip(t *testing.T) {
+func TestService_Validate_CorruptedZip(t *testing.T) {
+	s := NewService()
 	// 创建一个损坏的 zip 文件
 	tmpDir := t.TempDir()
 	corruptedFile := filepath.Join(tmpDir, "corrupted.epub")
@@ -32,11 +34,11 @@ func TestValidateEpubFile_CorruptedZip(t *testing.T) {
 		t.Fatalf("无法创建测试文件: %v", err)
 	}
 
-	err = ValidateEpubFile(corruptedFile)
+	err = s.Validate(corruptedFile)
 	if err == nil {
 		t.Error("期望返回错误，但得到 nil")
 	}
-	if !IsEpubError(err) {
+	if !isEpubError(err) {
 		t.Error("期望返回 EpubError")
 	}
 	epubErr := err.(*EpubError)
@@ -45,7 +47,8 @@ func TestValidateEpubFile_CorruptedZip(t *testing.T) {
 	}
 }
 
-func TestValidateEpubFile_MissingRequiredFiles(t *testing.T) {
+func TestService_Validate_MissingRequiredFiles(t *testing.T) {
+	s := NewService()
 	// 创建一个缺少必需文件的 EPUB（有效的 ZIP，但缺少 mimetype）
 	tmpDir := t.TempDir()
 	epubFile := filepath.Join(tmpDir, "missing_files.epub")
@@ -69,71 +72,16 @@ func TestValidateEpubFile_MissingRequiredFiles(t *testing.T) {
 	}
 	w.Close()
 
-	err = ValidateEpubFile(epubFile)
+	err = s.Validate(epubFile)
 	if err == nil {
 		t.Error("期望返回错误，但得到 nil")
 	}
-	if !IsEpubError(err) {
+	if !isEpubError(err) {
 		t.Error("期望返回 EpubError")
 	}
 	epubErr := err.(*EpubError)
 	if epubErr.Type != ErrorTypeMissing {
 		t.Errorf("期望错误类型为 ErrorTypeMissing，得到 %v", epubErr.Type)
-	}
-}
-
-func TestIsEpubError(t *testing.T) {
-	epubErr := &EpubError{
-		Type:    ErrorTypeCorrupted,
-		Message: "测试错误",
-	}
-
-	if !IsEpubError(epubErr) {
-		t.Error("IsEpubError 应该返回 true")
-	}
-
-	normalErr := os.ErrNotExist
-	if IsEpubError(normalErr) {
-		t.Error("IsEpubError 应该返回 false")
-	}
-}
-
-func TestGetErrorType(t *testing.T) {
-	tests := []struct {
-		name     string
-		err      error
-		expected ErrorType
-	}{
-		{
-			name: "EpubError with ErrorTypeCorrupted",
-			err: &EpubError{
-				Type:    ErrorTypeCorrupted,
-				Message: "测试",
-			},
-			expected: ErrorTypeCorrupted,
-		},
-		{
-			name: "EpubError with ErrorTypeMissing",
-			err: &EpubError{
-				Type:    ErrorTypeMissing,
-				Message: "测试",
-			},
-			expected: ErrorTypeMissing,
-		},
-		{
-			name:     "Normal error",
-			err:      os.ErrNotExist,
-			expected: ErrorTypeCorrupted,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := GetErrorType(tt.err)
-			if result != tt.expected {
-				t.Errorf("期望 %v，得到 %v", tt.expected, result)
-			}
-		})
 	}
 }
 
@@ -170,4 +118,10 @@ func TestEpubError_Error(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Helper to check error type locally since IsEpubError was in pkg/util
+func isEpubError(err error) bool {
+	_, ok := err.(*EpubError)
+	return ok
 }

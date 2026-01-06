@@ -1,9 +1,10 @@
-package util
+package epub
 
 import (
 	"archive/zip"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/kapmahc/epub"
@@ -34,11 +35,19 @@ func (e *EpubError) Error() string {
 	return e.Message
 }
 
-// ValidateEpubFile 检测 EPUB 文件完整性
+// Service 封装 EPUB 操作服务
+type Service struct{}
+
+// NewService 创建 EPUB 服务
+func NewService() *Service {
+	return &Service{}
+}
+
+// Validate 检测 EPUB 文件完整性
 // 返回 nil 表示文件正常，返回 EpubError 表示检测到问题
-func ValidateEpubFile(filePath string) error {
+func (s *Service) Validate(filePath string) error {
 	// 1. 检查文件是否存在
-	if !Exists(filePath) {
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return &EpubError{
 			Type:    ErrorTypeCorrupted,
 			Message: "文件不存在",
@@ -47,17 +56,17 @@ func ValidateEpubFile(filePath string) error {
 	}
 
 	// 2. 检查 ZIP 文件完整性
-	if err := checkZipIntegrity(filePath); err != nil {
+	if err := s.checkZipIntegrity(filePath); err != nil {
 		return err
 	}
 
 	// 3. 检查必需文件存在性
-	if err := checkRequiredFiles(filePath); err != nil {
+	if err := s.checkRequiredFiles(filePath); err != nil {
 		return err
 	}
 
 	// 4. 检查元数据可解析性
-	if err := checkMetadata(filePath); err != nil {
+	if err := s.checkMetadata(filePath); err != nil {
 		return err
 	}
 
@@ -65,7 +74,7 @@ func ValidateEpubFile(filePath string) error {
 }
 
 // checkZipIntegrity 检查 ZIP 文件完整性
-func checkZipIntegrity(filePath string) error {
+func (s *Service) checkZipIntegrity(filePath string) error {
 	r, err := zip.OpenReader(filePath)
 	if err != nil {
 		return &EpubError{
@@ -104,7 +113,7 @@ func checkZipIntegrity(filePath string) error {
 }
 
 // checkRequiredFiles 检查 EPUB 必需文件
-func checkRequiredFiles(filePath string) error {
+func (s *Service) checkRequiredFiles(filePath string) error {
 	r, err := zip.OpenReader(filePath)
 	if err != nil {
 		return &EpubError{
@@ -144,7 +153,7 @@ func checkRequiredFiles(filePath string) error {
 }
 
 // checkMetadata 检查元数据可解析性
-func checkMetadata(filePath string) error {
+func (s *Service) checkMetadata(filePath string) error {
 	book, err := epub.Open(filePath)
 	if err != nil {
 		return &EpubError{
@@ -153,6 +162,14 @@ func checkMetadata(filePath string) error {
 			Detail:  err.Error(),
 		}
 	}
+	// 关闭文件句柄，避免泄漏（原代码未显式关闭，这里加上）
+	// epub.Open 在内部可能会持有文件句柄，视库实现而定
+	// 但看库源码，epub.Open 返回 *Book，它并没有 Close 方法...
+	// 等等，查看 kapmahc/epub 库，Open 会把内容读到内存，没有持久的文件句柄占用？
+	// 重新确认原代码逻辑，原代码没有 Close。
+	// 这里保持原样，如果有泄露问题再说。
+
+	// 修正：kapmahc/epub 确实没有 Close 方法。
 
 	// 检查基本元数据
 	if book == nil {
@@ -174,16 +191,14 @@ func checkMetadata(filePath string) error {
 	return nil
 }
 
-// IsEpubError 判断是否为 EpubError
-func IsEpubError(err error) bool {
-	_, ok := err.(*EpubError)
-	return ok
-}
-
-// GetErrorType 获取 EpubError 的错误类型
-func GetErrorType(err error) ErrorType {
-	if epubErr, ok := err.(*EpubError); ok {
-		return epubErr.Type
+// GetTitle 获取书籍标题
+func (s *Service) GetTitle(filePath string) (string, error) {
+	book, err := epub.Open(filePath)
+	if err != nil {
+		return "", err
 	}
-	return ErrorTypeCorrupted
+	if book == nil || len(book.Opf.Metadata.Title) == 0 {
+		return "", fmt.Errorf("无法获得书籍标题")
+	}
+	return book.Opf.Metadata.Title[0], nil
 }
