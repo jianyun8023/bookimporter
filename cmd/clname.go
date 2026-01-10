@@ -3,13 +3,13 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/jianyun8023/golibri/epub"
+
 	"github.com/jianyun8023/bookimporter/pkg/ui"
 	"github.com/jianyun8023/bookimporter/pkg/util"
-	"github.com/kapmahc/epub"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +23,7 @@ var clnameCmd = &cobra.Command{
 	Long: `清理 EPUB 书籍标题中的无用描述符和标记
 
 自动移除书籍标题中的各种括号标记，如：（）【】()[]
-使用 Calibre 的 ebook-meta 工具修改元数据。
+使用纯 Go 库直接修改 EPUB 元数据，无需外部依赖。
 
 支持：
   • 单个文件或批量目录处理
@@ -339,14 +339,20 @@ func ParseEpub(file string, c *ClnameConfig, stats *ClnameStats, progress *ui.Pr
 		return fmt.Errorf("EPUB 文件检测失败: %w", err)
 	}
 
+	// 使用 go-epub-meta 库打开 EPUB 文件
 	book, err := epub.Open(file)
 	if err != nil {
 		return err
 	}
-	if book == nil || len(book.Opf.Metadata.Title) == 0 {
+	defer book.Close()
+
+	// 获取当前标题
+	title := book.Package.GetTitle()
+	if title == "" {
 		return fmt.Errorf("无法获得书籍标题")
 	}
-	title := book.Opf.Metadata.Title[0]
+
+	// 清理标题
 	newTitle := util.TryCleanTitle(title)
 	if title == newTitle {
 		stats.Skipped++
@@ -370,14 +376,11 @@ func ParseEpub(file string, c *ClnameConfig, stats *ClnameStats, progress *ui.Pr
 		return nil
 	}
 
-	// 执行单个shell命令时, 直接运行即可
-	command := fmt.Sprintf("ebook-meta \"%s\" -t \"%s\"", file, newTitle)
-	cmdx := exec.Command("bash", "-c", command)
-
-	if _, err = cmdx.Output(); err != nil {
+	// 使用 go-epub-meta 库更新标题并保存
+	book.Package.SetTitle(newTitle)
+	if err := book.Save(file); err != nil {
 		if c.Debug {
-			fmt.Println(cmdx.Env)
-			fmt.Println(cmdx.Args)
+			fmt.Println(ui.RenderError(fmt.Sprintf("保存失败: %v", err)))
 		}
 		return err
 	}

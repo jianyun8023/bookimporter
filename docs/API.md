@@ -264,40 +264,38 @@ import (
     "fmt"
     "path/filepath"
     "github.com/jianyun8023/bookimporter/pkg/util"
-    "github.com/kapmahc/epub"
+    "github.com/jianyun8023/bookimporter/pkg/util"
+    "github.com/jianyun8023/golibri/epub"
 )
 
 func processBooks(dir string) error {
-    files, err := filepath.Glob(filepath.Join(dir, "*.epub"))
-    if err != nil {
-        return err
-    }
+    files, _ := filepath.Glob(filepath.Join(dir, "*.epub"))
     
     for _, file := range files {
-        if !util.IsFile(file) {
-            continue
-        }
-        
         // 打开 EPUB
         book, err := epub.Open(file)
         if err != nil {
             fmt.Printf("无法打开 %s: %v\n", file, err)
             continue
         }
+        defer book.Close()
         
         // 获取标题
-        if len(book.Opf.Metadata.Title) == 0 {
+        oldTitle := book.Package.GetTitle()
+        if oldTitle == "" {
             continue
         }
         
-        oldTitle := book.Opf.Metadata.Title[0]
         newTitle := util.TryCleanTitle(oldTitle)
         
         if oldTitle != newTitle {
             fmt.Printf("文件: %s\n", file)
             fmt.Printf("  旧标题: %s\n", oldTitle)
             fmt.Printf("  新标题: %s\n", newTitle)
-            // 这里可以调用 ebook-meta 更新
+            
+            // 使用库更新并在原位保存
+            book.Package.SetTitle(newTitle)
+            book.Save(file)
         }
     }
     
@@ -358,8 +356,8 @@ BookImporter 使用标准 Go 错误处理机制。主要错误类型：
 
 1. **文件不存在**: `os.ErrNotExist`
 2. **权限错误**: `os.ErrPermission`
-3. **EPUB 解析错误**: epub 库返回的错误
-4. **命令执行错误**: exec 包返回的错误
+3. **EPUB 编解码错误**: golibri 库返回的错误
+4. **IO 错误**: 文件读写相关的系统错误
 
 ### 错误处理示例
 
@@ -528,7 +526,7 @@ type Cleaner interface {
 ## 参考资源
 
 - [Cobra 文档](https://github.com/spf13/cobra)
-- [epub 库文档](https://github.com/kapmahc/epub)
+- [golibri 库文档](https://github.com/jianyun8023/golibri)
 - [Go 标准库](https://golang.org/pkg/)
 
 ---

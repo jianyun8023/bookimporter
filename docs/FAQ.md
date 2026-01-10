@@ -82,27 +82,7 @@ sudo mv bookimporter /usr/local/bin/
 
 ## clname 命令
 
-### Q5: 提示 "ebook-meta: command not found"
-
-**原因:** 未安装 Calibre 或 ebook-meta 不在 PATH 中。
-
-**解决方案:**
-
-安装 Calibre：
-
-```bash
-# macOS
-brew install calibre
-
-# Ubuntu/Debian
-sudo apt-get install calibre
-
-# 验证安装
-which ebook-meta
-ebook-meta --version
-```
-
-### Q6: 处理时提示 "无法获得书籍标题"
+### Q5: 处理时提示 "无法获得书籍标题"
 
 **可能原因:**
 1. EPUB 文件损坏
@@ -123,13 +103,13 @@ bookimporter clname -p /path/to/books -r
 bookimporter clname -p /path/to/books -r -i
 ```
 
-2. 使用 Calibre 手动检查文件：
+2. 使用 `check` 命令检查文件：
 
 ```bash
-ebook-meta problem.epub
+bookimporter check -p problem.epub
 ```
 
-3. 如果文件确实损坏，尝试重新下载或使用 Calibre 修复。
+3. 如果文件确实损坏，尝试重新下载或使用专业电子书编辑工具（如 Calibre 或 Sigil）修复。
 
 ### Q7: 清理后标题没有变化？
 
@@ -316,17 +296,7 @@ bookimporter.exe clname -p C:\Books
 
 ### Q22: Windows 上 clname 命令不工作？
 
-Windows 版 Calibre 的 `ebook-meta.exe` 可能不在 PATH 中。
-
-**解决方案:**
-
-1. 找到 Calibre 安装路径（通常是 `C:\Program Files\Calibre2`）
-
-2. 添加到 PATH 或使用完整路径：
-
-```cmd
-set PATH=%PATH%;C:\Program Files\Calibre2
-```
+请确保命令行窗口是以 UTF-8 编码运行的。如果遇到权限问题，请尝试以管理员身份运行。
 
 ### Q23: macOS Big Sur 及以上版本权限问题？
 

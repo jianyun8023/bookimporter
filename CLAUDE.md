@@ -9,7 +9,7 @@ BookImporter 是一个用 Go 语言开发的书籍导入助手工具，旨在帮
 1. **书籍标题清理 (clname)**
    - 自动清理 EPUB 书籍标题中的无用描述符
    - 移除常见的括号标记：`（）【】()[]`
-   - 使用 calibre 的 `ebook-meta` 工具修改元数据
+   - 使用纯 Go 库直接修改 EPUB 元数据，无需外部依赖
    - 支持批量处理目录中的所有 EPUB 文件
    - 支持递归搜索子目录
    - 提供预览模式和损坏文件处理
@@ -35,8 +35,7 @@ BookImporter 是一个用 Go 语言开发的书籍导入助手工具，旨在帮
   - [Lipgloss](https://github.com/charmbracelet/lipgloss) v1.1.0 - 样式和布局
   - [Bubbles](https://github.com/charmbracelet/bubbles) v0.21.0 - TUI 组件
   - [go-isatty](https://github.com/mattn/go-isatty) v0.0.20 - 终端检测
-- **EPUB处理**: [epub](https://github.com/kapmahc/epub) - EPUB 文件解析库
-- **外部依赖**: Calibre 的 ebook-meta 工具（用于修改 EPUB 元数据）
+- **EPUB处理**: [go-epub-meta](https://github.com/jianyun8023/go-epub-meta) - 纯 Go 实现的 EPUB 元数据编辑库
 
 ## 项目结构
 
@@ -217,15 +216,12 @@ func init() {
 
 ### 运行时依赖
 
-- **Calibre ebook-meta**: clname 命令需要此工具来修改 EPUB 元数据
-  - macOS: `brew install calibre`
-  - Linux: `sudo apt-get install calibre`
-  - Windows: 从 [Calibre 官网](https://calibre-ebook.com/download) 下载安装
+- **无外部依赖**: 所有功能均使用纯 Go 实现，无需安装额外软件
 
 ### Go 模块依赖
 
 - `github.com/spf13/cobra`: CLI 框架
-- `github.com/kapmahc/epub`: EPUB 文件解析
+- `golibri/epub`: EPUB 元数据编辑库
 - `github.com/spf13/pflag`: 命令行参数解析
 
 ## 常见问题
@@ -247,9 +243,6 @@ A: check 仅检测文件完整性，不修改文件；clname 会修改书籍标�
 A: 一般无法修复，建议使用 `--move-to` 移动到单独目录手动处理。
 
 ### clname 命令相关
-
-**Q: 为什么执行失败，提示找不到 ebook-meta？**
-A: 需要安装 Calibre 软件包，它包含了 ebook-meta 命令行工具。
 
 **Q: 如何自定义清理规则？**
 A: 修改 `pkg/util/cleanname.go` 中的 `TryCleanTitle` 函数，添加自定义的清理逻辑。

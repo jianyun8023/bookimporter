@@ -5,8 +5,8 @@
 ## 系统要求
 
 - **操作系统**: macOS, Linux, Windows
-- **Go 版本**: 1.18 或更高（仅源码安装需要）
-- **Calibre**: 用于 clname 命令（可选）
+- **Go 版本**: 1.23 或更高（仅源码安装需要）
+- **无外部依赖**: 所有功能均使用纯 Go 实现，不再需要安装 Calibre
 
 ## 安装方式
 
@@ -104,50 +104,6 @@ go install github.com/jianyun8023/bookimporter@latest
 
 确保 `$GOPATH/bin` 或 `$HOME/go/bin` 在你的 PATH 中。
 
-## 安装 Calibre（clname 命令依赖）
-
-如果你需要使用 `clname` 命令清理 EPUB 书籍标题，需要安装 Calibre。
-
-### macOS
-
-使用 Homebrew：
-
-```bash
-brew install calibre
-```
-
-或者从 [Calibre 官网](https://calibre-ebook.com/download) 下载安装包。
-
-### Linux
-
-#### Ubuntu/Debian
-
-```bash
-sudo apt-get update
-sudo apt-get install calibre
-```
-
-#### Fedora
-
-```bash
-sudo dnf install calibre
-```
-
-#### Arch Linux
-
-```bash
-sudo pacman -S calibre
-```
-
-### Windows
-
-从 [Calibre 官网](https://calibre-ebook.com/download) 下载 Windows 安装程序并安装。
-
-安装后，确保 `ebook-meta` 命令可用：
-
-```bash
-ebook-meta --version
-```
 
 ## 验证安装
 
@@ -187,14 +143,7 @@ bookimporter completion zsh > "${fpath[1]}/_bookimporter"
 bookimporter completion fish > ~/.config/fish/completions/bookimporter.fish
 ```
 
-### 环境变量
 
-可以设置以下环境变量：
-
-```bash
-# Calibre ebook-meta 工具路径（如果不在 PATH 中）
-export EBOOK_META_PATH=/path/to/ebook-meta
-```
 
 ## 升级
 
@@ -249,17 +198,11 @@ echo $PATH
 chmod +x bookimporter
 ```
 
-### ebook-meta 未找到
 
-确保 Calibre 已正确安装并在 PATH 中：
-
-```bash
-which ebook-meta
-```
 
 ### Go 版本过低
 
-升级 Go 到 1.18 或更高版本：
+升级 Go 到 1.23 或更高版本：
 
 ```bash
 # 使用官方安装包或包管理器升级
