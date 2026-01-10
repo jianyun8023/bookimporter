@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/kapmahc/epub"
+	"github.com/jianyun8023/golibri/epub"
 )
 
 // EpubError 表示 EPUB 文件检测错误
@@ -153,9 +153,10 @@ func checkMetadata(filePath string) error {
 			Detail:  err.Error(),
 		}
 	}
+	defer book.Close()
 
 	// 检查基本元数据
-	if book == nil {
+	if book == nil || book.Package == nil {
 		return &EpubError{
 			Type:    ErrorTypeFormat,
 			Message: "EPUB 解析失败",
@@ -163,7 +164,7 @@ func checkMetadata(filePath string) error {
 		}
 	}
 
-	if len(book.Opf.Metadata.Title) == 0 {
+	if book.Package.GetTitle() == "" {
 		return &EpubError{
 			Type:    ErrorTypeMetadata,
 			Message: "缺少书籍标题",

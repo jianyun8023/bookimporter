@@ -14,7 +14,7 @@
 - ✅ 移除各种括号标记：`（）【】()[]`
 - ✅ 批量处理目录下所有 EPUB 文件
 - ✅ 支持预览模式，安全可靠
-- ✅ 使用 Calibre 的 ebook-meta 工具修改元数据
+- ✅ 使用纯 Go 库直接修改元数据，无需外部依赖
 - ✅ 自动检测并处理损坏的 EPUB 文件
 
 ### 2. 批量重命名 (rename)
@@ -133,7 +133,7 @@ bookimporter check -p /path/to/books/ -r --delete --force
 ## 💻 系统要求
 
 - **操作系统**: macOS, Linux, Windows
-- **Calibre**: clname 命令需要（用于修改 EPUB 元数据）
+- **无外部依赖**: 所有功能均使用纯 Go 实现
 
 ## 🤝 贡献
 
